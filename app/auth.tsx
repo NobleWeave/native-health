@@ -1,45 +1,221 @@
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useAuth } from "../context/AuthContext";
 
-export default function AuthLandingScreen() {
+export default function AuthScreen() {
+  const { signIn } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert(
+        "Missing information",
+        "Please enter your email and password.",
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { error } = await signIn(email.trim().toLowerCase(), password);
+
+      if (error) {
+        Alert.alert("Login failed", error);
+        return;
+      }
+
+      // Successful Supabase login
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error(error);
+
+      Alert.alert("Login failed", "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.logo}>CareFlow</Text>
-        <Text style={styles.title}>Healthcare, organized around you.</Text>
-        <Text style={styles.subtitle}>
-          Find care, manage appointments, keep your health information organized,
-          and stay on top of your healthcare journey.
-        </Text>
-      </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Text style={styles.logo}>CareFlow</Text>
 
-      <View style={styles.actions}>
-        <Pressable style={styles.primaryButton} onPress={() => router.push("/login")}>
-          <Text style={styles.primaryText}>Login</Text>
-        </Pressable>
+          <Text style={styles.title}>Welcome back</Text>
 
-        <Pressable style={styles.secondaryButton} onPress={() => router.push("/signup")}>
-          <Text style={styles.secondaryText}>Create an account</Text>
-        </Pressable>
+          <Text style={styles.subtitle}>
+            Sign in to continue your healthcare journey.
+          </Text>
+        </View>
 
-        <Text style={styles.demoHint}>
-          Demo login: demo@careflow.com / CareFlow123
-        </Text>
-      </View>
-    </View>
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#94A3B8"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password"
+              placeholderTextColor="#94A3B8"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+          </View>
+
+          <Pressable
+            style={[styles.loginButton, loading && styles.disabledButton]}
+            onPress={handleLogin}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.loginButtonText}>Login</Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={styles.signupButton}
+            onPress={() => router.push("/signup")}>
+            <Text style={styles.signupText}>
+              Don't have an account?{" "}
+              <Text style={styles.signupLink}>Sign up</Text>
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F7F8F6", padding: 24, justifyContent: "space-between" },
-  content: { flex: 1, justifyContent: "center" },
-  logo: { fontSize: 25, fontWeight: "800", color: "#285C3B", marginBottom: 32 },
-  title: { fontSize: 36, lineHeight: 43, fontWeight: "800", color: "#17201B", marginBottom: 16 },
-  subtitle: { fontSize: 16, lineHeight: 25, color: "#69736D", maxWidth: 370 },
-  actions: { gap: 12, paddingBottom: 18 },
-  primaryButton: { height: 56, borderRadius: 15, backgroundColor: "#285C3B", alignItems: "center", justifyContent: "center" },
-  primaryText: { color: "white", fontSize: 16, fontWeight: "700" },
-  secondaryButton: { height: 54, borderRadius: 15, backgroundColor: "white", borderWidth: 1, borderColor: "#D8DED9", alignItems: "center", justifyContent: "center" },
-  secondaryText: { color: "#285C3B", fontSize: 16, fontWeight: "700" },
-  demoHint: { textAlign: "center", color: "#8A948E", fontSize: 11, marginTop: 6 },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 50,
+  },
+
+  header: {
+    marginBottom: 40,
+  },
+
+  logo: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2563EB",
+    marginBottom: 30,
+  },
+
+  title: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 10,
+  },
+
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: "#64748B",
+  },
+
+  form: {
+    gap: 20,
+  },
+
+  inputGroup: {
+    gap: 8,
+  },
+
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  input: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#0F172A",
+  },
+
+  loginButton: {
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+
+  disabledButton: {
+    opacity: 0.7,
+  },
+
+  loginButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  signupButton: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+
+  signupText: {
+    color: "#64748B",
+    fontSize: 14,
+  },
+
+  signupLink: {
+    color: "#2563EB",
+    fontWeight: "600",
+  },
 });

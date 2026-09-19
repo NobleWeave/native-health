@@ -1,95 +1,384 @@
 import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { useAuth } from "../context/AuthContext";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+
+import { supabase } from "../services/supabase/client";
 
 export default function SignupScreen() {
-  const { startSignup } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSignup = () => {
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      setError("Please complete all fields.");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignup = async () => {
+    // -----------------------------
+    // Validation
+    // -----------------------------
+
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      Alert.alert("Missing information", "Please fill in all required fields.");
       return;
     }
 
-    startSignup(name, email);
-    router.replace("/onboarding/get-started");
+    if (password !== confirmPassword) {
+      Alert.alert("Password mismatch", "Passwords do not match.");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Weak password", "Password must be at least 6 characters.");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert("Invalid email", "Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // -----------------------------
+      // Create Supabase Auth account
+      // -----------------------------
+
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+      });
+
+      // -----------------------------
+      // Supabase signup error
+      // -----------------------------
+
+      if (error) {
+        console.error("Signup error:", error);
+
+        const message = error.message.toLowerCase();
+
+        if (
+          message.includes("already registered") ||
+          message.includes("already exists") ||
+          message.includes("user already")
+        ) {
+          Alert.alert(
+            "Email already exists",
+            "An account with this email already exists. Please log in instead.",
+            [
+              {
+                text: "Go to Login",
+                onPress: () => {
+                  router.replace("/login");
+                },
+              },
+              {
+                text: "Cancel",
+                style: "cancel",
+              },
+            ],
+          );
+
+          return;
+        }
+
+        Alert.alert("Signup failed", error.message);
+
+        return;
+      }
+
+      // -----------------------------
+      // Make sure user was created
+      // -----------------------------
+
+      if (!data.user) {
+        Alert.alert(
+          "Signup failed",
+          "Your account could not be created. Please try again.",
+        );
+
+        return;
+      }
+
+      console.log("Supabase account created:", data.user.id);
+
+      // -----------------------------
+      // Profile creation temporarily
+      // skipped because of RLS.
+      //
+      // We will handle this later using
+      // a proper database trigger.
+      // -----------------------------
+
+      console.log("Profile creation skipped for now.");
+
+      // -----------------------------
+      // Continue onboarding
+      // -----------------------------
+
+      router.replace("/onboarding/get-started");
+    } catch (error) {
+      console.error("Unexpected signup error:", error);
+
+      Alert.alert("Signup failed", "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <View>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        {/* Header */}
 
-        <Text style={styles.logo}>CareFlow</Text>
-        <Text style={styles.title}>Create your account</Text>
-        <Text style={styles.subtitle}>
-          Tell us a little about yourself so we can personalize your care journey.
-        </Text>
+        <View style={styles.header}>
+          <Text style={styles.logo}>CareFlow</Text>
+
+          <Text style={styles.title}>Create your account</Text>
+
+          <Text style={styles.subtitle}>
+            Start managing your healthcare journey with CareFlow.
+          </Text>
+        </View>
+
+        {/* Form */}
 
         <View style={styles.form}>
-          <Text style={styles.label}>Full name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Your full name"
-            placeholderTextColor="#A0AAA4"
-          />
+          {/* Name */}
 
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor="#A0AAA4"
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full name</Text>
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Create a password"
-            placeholderTextColor="#A0AAA4"
-            secureTextEntry
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your full name"
+              placeholderTextColor="#94A3B8"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {/* Email */}
 
-          <Pressable style={styles.button} onPress={handleSignup}>
-            <Text style={styles.buttonText}>Continue</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#94A3B8"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
+
+          {/* Password */}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Create a password"
+              placeholderTextColor="#94A3B8"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              editable={!loading}
+            />
+          </View>
+
+          {/* Confirm Password */}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirm password</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password again"
+              placeholderTextColor="#94A3B8"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              editable={!loading}
+            />
+          </View>
+
+          {/* Signup Button */}
+
+          <Pressable
+            style={[styles.signupButton, loading && styles.disabledButton]}
+            onPress={handleSignup}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.signupButtonText}>Create account</Text>
+            )}
           </Pressable>
-        </View>
-      </View>
 
-      <Pressable onPress={() => router.replace("/login")}>
-        <Text style={styles.switchText}>Already have an account? Login</Text>
-      </Pressable>
-    </View>
+          {/* Login */}
+
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account?</Text>
+
+            <Pressable
+              onPress={() => router.replace("/login")}
+              disabled={loading}>
+              <Text style={styles.loginLink}>Log in</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Privacy */}
+
+        <Text style={styles.privacyText}>
+          By creating an account, you agree to use CareFlow for healthcare
+          navigation and coordination. CareFlow does not provide medical
+          diagnosis.
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F7F8F6", padding: 24, paddingTop: 60, justifyContent: "space-between", paddingBottom: 30 },
-  back: { color: "#285C3B", fontSize: 15, fontWeight: "700", marginBottom: 30 },
-  logo: { color: "#285C3B", fontSize: 22, fontWeight: "800", marginBottom: 28 },
-  title: { fontSize: 31, fontWeight: "800", color: "#17201B", marginBottom: 8 },
-  subtitle: { color: "#69736D", fontSize: 15, lineHeight: 22 },
-  form: { marginTop: 28, gap: 10 },
-  label: { color: "#334039", fontSize: 14, fontWeight: "700", marginTop: 7 },
-  input: { height: 54, backgroundColor: "white", borderWidth: 1, borderColor: "#D8DED9", borderRadius: 13, paddingHorizontal: 15, color: "#17201B", fontSize: 15 },
-  error: { color: "#B42318", fontSize: 13, marginTop: 4 },
-  button: { height: 56, backgroundColor: "#285C3B", borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 12 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "800" },
-  switchText: { textAlign: "center", color: "#285C3B", fontWeight: "700", fontSize: 14 },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 50,
+  },
+
+  header: {
+    marginBottom: 36,
+  },
+
+  logo: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2563EB",
+    marginBottom: 30,
+  },
+
+  title: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 10,
+  },
+
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: "#64748B",
+  },
+
+  form: {
+    gap: 18,
+  },
+
+  inputGroup: {
+    gap: 8,
+  },
+
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  input: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#0F172A",
+  },
+
+  signupButton: {
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+
+  disabledButton: {
+    opacity: 0.7,
+  },
+
+  signupButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  loginContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 8,
+  },
+
+  loginText: {
+    color: "#64748B",
+    fontSize: 14,
+  },
+
+  loginLink: {
+    color: "#2563EB",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  privacyText: {
+    textAlign: "center",
+    color: "#94A3B8",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 32,
+  },
 });

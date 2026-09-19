@@ -1,95 +1,274 @@
 import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { signIn } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    setError("");
-
-    if (!login(email, password)) {
-      setError("Invalid username or password. Use the demo credentials shown below.");
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert(
+        "Missing information",
+        "Please enter your email and password.",
+      );
       return;
     }
 
-    router.replace("/(tabs)");
+    try {
+      setLoading(true);
+
+      const { error } = await signIn(email.trim().toLowerCase(), password);
+
+      if (error) {
+        Alert.alert("Login failed", error);
+        return;
+      }
+
+      // Supabase session is now active.
+      // Go directly to Home.
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("Login error:", error);
+
+      Alert.alert("Login failed", "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <View>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>CareFlow</Text>
 
-        <Text style={styles.logo}>CareFlow</Text>
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Log in to continue your healthcare journey.</Text>
+          <Text style={styles.title}>Welcome back</Text>
 
+          <Text style={styles.subtitle}>
+            Sign in to continue your healthcare journey.
+          </Text>
+        </View>
+
+        {/* Form */}
         <View style={styles.form}>
-          <Text style={styles.label}>Username / Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="demo@careflow.com"
-            placeholderTextColor="#A0AAA4"
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+          {/* Email */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter password"
-            placeholderTextColor="#A0AAA4"
-            secureTextEntry
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="#94A3B8"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {/* Password */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
 
-          <Pressable style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Login</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password"
+              placeholderTextColor="#94A3B8"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              editable={!loading}
+            />
+          </View>
+
+          {/* Forgot Password */}
+          <Pressable
+            style={styles.forgotButton}
+            onPress={() => {
+              Alert.alert(
+                "Forgot password",
+                "Password reset will be connected to Supabase next.",
+              );
+            }}
+            disabled={loading}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
           </Pressable>
-        </View>
-      </View>
 
-      <View>
-        <View style={styles.demoBox}>
-          <Text style={styles.demoTitle}>Demo credentials</Text>
-          <Text style={styles.demoText}>Username: demo@careflow.com</Text>
-          <Text style={styles.demoText}>Password: CareFlow123</Text>
+          {/* Login */}
+          <Pressable
+            style={[styles.loginButton, loading && styles.disabledButton]}
+            onPress={handleLogin}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.loginButtonText}>Login</Text>
+            )}
+          </Pressable>
+
+          {/* Signup */}
+          <View style={styles.signupContainer}>
+            <Text style={styles.signupText}>Don't have an account?</Text>
+
+            <Pressable
+              onPress={() => router.push("/signup")}
+              disabled={loading}>
+              <Text style={styles.signupLink}>Sign up</Text>
+            </Pressable>
+          </View>
         </View>
 
-        <Pressable onPress={() => router.replace("/signup")}>
-          <Text style={styles.switchText}>Don't have an account? Create one</Text>
-        </Pressable>
-      </View>
-    </View>
+        {/* Privacy */}
+        <Text style={styles.privacyText}>
+          Your healthcare information is protected and remains under your
+          control.
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F7F8F6", padding: 24, paddingTop: 60, justifyContent: "space-between", paddingBottom: 30 },
-  back: { color: "#285C3B", fontSize: 15, fontWeight: "700", marginBottom: 30 },
-  logo: { color: "#285C3B", fontSize: 22, fontWeight: "800", marginBottom: 28 },
-  title: { fontSize: 32, fontWeight: "800", color: "#17201B", marginBottom: 8 },
-  subtitle: { color: "#69736D", fontSize: 15, lineHeight: 22 },
-  form: { marginTop: 32, gap: 10 },
-  label: { color: "#334039", fontSize: 14, fontWeight: "700", marginTop: 8 },
-  input: { height: 54, backgroundColor: "white", borderWidth: 1, borderColor: "#D8DED9", borderRadius: 13, paddingHorizontal: 15, color: "#17201B", fontSize: 15 },
-  error: { color: "#B42318", fontSize: 13, lineHeight: 19, marginTop: 4 },
-  button: { height: 56, backgroundColor: "#285C3B", borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 12 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "800" },
-  demoBox: { backgroundColor: "#EAF1EC", borderRadius: 14, padding: 14, marginBottom: 18 },
-  demoTitle: { color: "#285C3B", fontWeight: "800", marginBottom: 5 },
-  demoText: { color: "#526058", fontSize: 12, marginTop: 2 },
-  switchText: { textAlign: "center", color: "#285C3B", fontWeight: "700", fontSize: 14 },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 50,
+  },
+
+  header: {
+    marginBottom: 40,
+  },
+
+  logo: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2563EB",
+    marginBottom: 32,
+  },
+
+  title: {
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 10,
+  },
+
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: "#64748B",
+  },
+
+  form: {
+    gap: 18,
+  },
+
+  inputGroup: {
+    gap: 8,
+  },
+
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  input: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#0F172A",
+  },
+
+  forgotButton: {
+    alignSelf: "flex-end",
+    marginTop: -4,
+  },
+
+  forgotText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2563EB",
+  },
+
+  loginButton: {
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+
+  disabledButton: {
+    opacity: 0.7,
+  },
+
+  loginButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  signupContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 8,
+  },
+
+  signupText: {
+    color: "#64748B",
+    fontSize: 14,
+  },
+
+  signupLink: {
+    color: "#2563EB",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  privacyText: {
+    textAlign: "center",
+    color: "#94A3B8",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 32,
+  },
 });

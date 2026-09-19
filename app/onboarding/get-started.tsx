@@ -1,137 +1,328 @@
 import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useAuth } from "../../context/AuthContext";
+import React, { useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 export default function GetStartedScreen() {
-  const { pendingSignup, finishOnboarding } = useAuth();
-  const [age, setAge] = useState("");
+  const [step, setStep] = useState(1);
+
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [bloodGroup, setBloodGroup] = useState("");
   const [allergies, setAllergies] = useState("");
   const [conditions, setConditions] = useState("");
   const [medications, setMedications] = useState("");
-  const [emergencyContact, setEmergencyContact] = useState("");
 
-  const handleFinish = () => {
-    finishOnboarding({
-      age,
+  const handleNext = () => {
+    if (step === 1) {
+      setStep(2);
+      return;
+    }
+
+    // For now we simply complete onboarding.
+    // Medical data will be persisted once the medical_profiles
+    // table is added.
+
+    console.log({
+      dateOfBirth,
       bloodGroup,
       allergies,
       conditions,
       medications,
-      emergencyContact,
     });
 
+    Alert.alert(
+      "You're all set!",
+      "Your healthcare profile has been prepared.",
+      [
+        {
+          text: "Continue",
+          onPress: () => router.replace("/(tabs)"),
+        },
+      ],
+    );
+  };
+
+  const handleSkip = () => {
     router.replace("/(tabs)");
   };
 
-  if (!pendingSignup) {
-    router.replace("/auth");
-    return null;
-  }
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.logo}>CareFlow</Text>
-      <Text style={styles.step}>GET STARTED · 1 OF 1</Text>
-      <Text style={styles.title}>Let's set up your care profile</Text>
-      <Text style={styles.subtitle}>
-        Hi {pendingSignup.name.split(" ")[0]}. These details help us organize your healthcare journey.
-        You can leave anything blank and update it later.
-      </Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        {/* Header */}
 
-      <Section title="Basic information">
-        <Field label="Age" value={age} onChangeText={setAge} placeholder="e.g. 21" keyboardType="numeric" />
-        <Field label="Blood group (optional)" value={bloodGroup} onChangeText={setBloodGroup} placeholder="e.g. O+" />
-      </Section>
+        <View style={styles.header}>
+          <Text style={styles.logo}>CareFlow</Text>
 
-      <Section title="Medical information">
-        <Field label="Allergies" value={allergies} onChangeText={setAllergies} placeholder="Any known allergies" multiline />
-        <Field label="Existing conditions" value={conditions} onChangeText={setConditions} placeholder="Conditions you want us to know about" multiline />
-        <Field label="Current medications" value={medications} onChangeText={setMedications} placeholder="Medicines you currently take" multiline />
-      </Section>
+          <View style={styles.progressContainer}>
+            <View
+              style={[styles.progress, step >= 1 && styles.progressActive]}
+            />
 
-      <Section title="Emergency contact">
-        <Field label="Phone number" value={emergencyContact} onChangeText={setEmergencyContact} placeholder="Optional emergency contact" keyboardType="phone-pad" />
-      </Section>
+            <View
+              style={[styles.progress, step >= 2 && styles.progressActive]}
+            />
+          </View>
 
-      <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>Privacy note</Text>
-        <Text style={styles.noticeText}>
-          This is currently stored only in the app session. Supabase storage and authentication will be connected later.
+          <Text style={styles.stepText}>Step {step} of 2</Text>
+        </View>
+
+        {/* Step 1 */}
+
+        {step === 1 && (
+          <View>
+            <Text style={styles.title}>Tell us about yourself</Text>
+
+            <Text style={styles.subtitle}>
+              This information helps us personalize your healthcare experience.
+            </Text>
+
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Date of birth</Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="DD/MM/YYYY"
+                  placeholderTextColor="#94A3B8"
+                  value={dateOfBirth}
+                  onChangeText={setDateOfBirth}
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Blood group</Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. O+, A+, B-"
+                  placeholderTextColor="#94A3B8"
+                  value={bloodGroup}
+                  onChangeText={setBloodGroup}
+                  autoCapitalize="characters"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Step 2 */}
+
+        {step === 2 && (
+          <View>
+            <Text style={styles.title}>Your medical information</Text>
+
+            <Text style={styles.subtitle}>
+              You can provide information that may help organize your
+              healthcare. Everything here is optional.
+            </Text>
+
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Allergies</Text>
+
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="List any known allergies"
+                  placeholderTextColor="#94A3B8"
+                  value={allergies}
+                  onChangeText={setAllergies}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Existing conditions</Text>
+
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="For example: diabetes, asthma, etc."
+                  placeholderTextColor="#94A3B8"
+                  value={conditions}
+                  onChangeText={setConditions}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Current medications</Text>
+
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="List medicines you currently take"
+                  placeholderTextColor="#94A3B8"
+                  value={medications}
+                  onChangeText={setMedications}
+                  multiline
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Actions */}
+
+        <View style={styles.actions}>
+          <Pressable style={styles.primaryButton} onPress={handleNext}>
+            <Text style={styles.primaryButtonText}>
+              {step === 1 ? "Continue" : "Finish Setup"}
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.skipButton} onPress={handleSkip}>
+            <Text style={styles.skipText}>Skip for now</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.privacyText}>
+          You control what information you provide.
         </Text>
-      </View>
-
-      <Pressable style={styles.button} onPress={handleFinish}>
-        <Text style={styles.buttonText}>Finish & Go to Home</Text>
-      </Pressable>
-
-      <Pressable style={styles.skip} onPress={handleFinish}>
-        <Text style={styles.skipText}>Skip for now</Text>
-      </Pressable>
-    </ScrollView>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  multiline,
-  keyboardType,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder: string;
-  multiline?: boolean;
-  keyboardType?: "default" | "numeric" | "phone-pad";
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={[styles.input, multiline && styles.multiline]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#A0AAA4"
-        multiline={multiline}
-        keyboardType={keyboardType}
-        textAlignVertical={multiline ? "top" : "center"}
-      />
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F7F8F6" },
-  content: { padding: 24, paddingTop: 58, paddingBottom: 45 },
-  logo: { color: "#285C3B", fontSize: 22, fontWeight: "800", marginBottom: 22 },
-  step: { color: "#718078", fontSize: 11, fontWeight: "800", letterSpacing: 1.1, marginBottom: 9 },
-  title: { color: "#17201B", fontSize: 30, lineHeight: 37, fontWeight: "800" },
-  subtitle: { color: "#69736D", fontSize: 15, lineHeight: 23, marginTop: 10 },
-  section: { marginTop: 28 },
-  sectionTitle: { color: "#17201B", fontSize: 18, fontWeight: "800", marginBottom: 12 },
-  field: { marginBottom: 13 },
-  label: { color: "#334039", fontSize: 13, fontWeight: "700", marginBottom: 7 },
-  input: { minHeight: 52, backgroundColor: "white", borderWidth: 1, borderColor: "#D8DED9", borderRadius: 13, paddingHorizontal: 15, color: "#17201B", fontSize: 15 },
-  multiline: { minHeight: 88, paddingTop: 13 },
-  notice: { backgroundColor: "#EAF1EC", borderRadius: 14, padding: 15, marginTop: 12 },
-  noticeTitle: { color: "#285C3B", fontWeight: "800", marginBottom: 5 },
-  noticeText: { color: "#526058", fontSize: 12, lineHeight: 18 },
-  button: { height: 56, borderRadius: 14, backgroundColor: "#285C3B", alignItems: "center", justifyContent: "center", marginTop: 22 },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "800" },
-  skip: { alignItems: "center", paddingVertical: 17 },
-  skipText: { color: "#285C3B", fontSize: 14, fontWeight: "700" },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+
+  header: {
+    marginBottom: 35,
+  },
+
+  logo: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2563EB",
+    marginBottom: 24,
+  },
+
+  progressContainer: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  progress: {
+    flex: 1,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#E2E8F0",
+  },
+
+  progressActive: {
+    backgroundColor: "#2563EB",
+  },
+
+  stepText: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginTop: 8,
+  },
+
+  title: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 10,
+  },
+
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: "#64748B",
+    marginBottom: 30,
+  },
+
+  form: {
+    gap: 20,
+  },
+
+  inputGroup: {
+    gap: 8,
+  },
+
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  input: {
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#0F172A",
+  },
+
+  textArea: {
+    minHeight: 90,
+    paddingTop: 14,
+    textAlignVertical: "top",
+  },
+
+  actions: {
+    marginTop: 35,
+    gap: 14,
+  },
+
+  primaryButton: {
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  skipButton: {
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  skipText: {
+    color: "#64748B",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  privacyText: {
+    textAlign: "center",
+    color: "#94A3B8",
+    fontSize: 12,
+    marginTop: 20,
+  },
 });
