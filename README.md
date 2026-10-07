@@ -48,3 +48,20 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+# CareFlow Documentation
+
+## Architecture
+- [Architecture](ARCHITECTURE.md)
+- [Database](DATABASE.md)
+- [Decisions](DECISION.md)
+
+## Features
+- [Authentication](docs/features/authentication.md)
+- [AI Assistant](docs/features/ai-assistant.md)
+- [Care Missions](docs/features/care-missions.md)
+- [Provider Matching](docs/features/provider-matching.md)
+- [Medical Documents](docs/features/documents.md)
+- [Caregivers & Consent](docs/features/caregivers-consent.md)
+- [Appointments](docs/features/appointments.md)
+- [Notifications](docs/features/notifications.md)
