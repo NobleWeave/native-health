@@ -1,21 +1,22 @@
 import { Link } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 type QuickActionProps = {
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  href: "/find-care" | "/appointments" | "/documents" | "/(tabs)/care";
+  href: "/find-care" | "/appointments" | "/documents" | "/(tabs)/care" | "/daily-log";
 };
 
 export function QuickAction({ icon, title, href }: QuickActionProps) {
   return (
     <Link href={href} asChild>
-      <View style={styles.card}>
+      <Pressable style={styles.card}>
         <View style={styles.icon}>
-          <Text style={styles.iconText}>{icon}</Text>
+          <Ionicons name={icon} size={18} color="#315C3E" />
         </View>
         <Text style={styles.title}>{title}</Text>
-      </View>
+      </Pressable>
     </Link>
   );
 }

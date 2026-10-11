@@ -33,10 +33,11 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>Quick actions</Text>
 
         <View style={styles.actions}>
-          <QuickAction icon="⌕" title="Find care" href="/find-care" />
-          <QuickAction icon="✓" title="My missions" href="/(tabs)/care" />
-          <QuickAction icon="◷" title="Appointments" href="/appointments" />
-          <QuickAction icon="+" title="Upload report" href="/documents" />
+          <QuickAction icon="search-outline" title="Find care" href="/find-care" />
+          <QuickAction icon="checkmark-done-outline" title="My missions" href="/(tabs)/care" />
+          <QuickAction icon="calendar-outline" title="Appointments" href="/appointments" />
+          <QuickAction icon="document-text-outline" title="Upload report" href="/documents" />
+          <QuickAction icon="create-outline" title="Daily log" href="/daily-log" />
         </View>
 
         <Text style={styles.sectionTitle}>Active care mission</Text>
