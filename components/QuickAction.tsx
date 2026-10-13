@@ -1,38 +1,29 @@
-
-import { router } from "expo-router";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Link, type Href } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type QuickActionProps = {
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   href:
     | "/find-care"
     | "/appointments"
     | "/documents"
     | "/(tabs)/care"
-    | "/dietary-needs";
+    | "/dietary-needs"
+    | "/daily-log";
 };
 
 export function QuickAction({ icon, title, href }: QuickActionProps) {
   return (
-    <Pressable
-      onPress={() => router.push(href)}
-      style={({ pressed }) => [
-        styles.card,
-        pressed && styles.cardPressed,
-      ]}
-    >
-      <View style={styles.icon}>
-        <Text style={styles.iconText}>{icon}</Text>
-      </View>
-
-      <Text style={styles.title}>{title}</Text>
-    </Pressable>
+    <Link href={href as Href} asChild>
+      <Pressable style={styles.card}>
+        <View style={styles.icon}>
+          <Ionicons name={icon} size={18} color="#315C3E" />
+        </View>
+        <Text style={styles.title}>{title}</Text>
+      </Pressable>
+    </Link>
   );
 }
 
