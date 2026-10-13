@@ -31,14 +31,35 @@ export default function HomeScreen() {
           </View>
         </Link>
 
-        <Text style={styles.sectionTitle}>Quick actions</Text>
+<Text style={styles.sectionTitle}>Quick actions</Text>
 
-        <View style={styles.actions}>
-          <QuickAction icon="⌕" title="Find care" href="/find-care" />
-          <QuickAction icon="✓" title="My missions" href="/(tabs)/care" />
-          <QuickAction icon="◷" title="Appointments" href="/appointments" />
-          <QuickAction icon="+" title="Upload report" href="/documents" />
-        </View>
+<View style={styles.actions}>
+  <View style={styles.actionSlot}>
+    <QuickAction icon="⌕" title="Find care" href="/find-care" />
+  </View>
+
+  <View style={styles.actionSlot}>
+    <QuickAction icon="✓" title="My missions" href="/(tabs)/care" />
+  </View>
+
+  <View style={styles.actionSlot}>
+    <QuickAction icon="◷" title="Appointments" href="/appointments" />
+  </View>
+
+  <View style={styles.actionSlot}>
+    <QuickAction icon="+" title="Upload report" href="/documents" />
+  </View>
+
+  <View style={styles.actionSlot}>
+    <QuickAction
+      icon="🥗"
+      title="Dietary Needs"
+      href="/dietary-needs"
+    />
+  </View>
+</View>
+
+
 
         <Text style={styles.sectionTitle}>Active care mission</Text>
 
@@ -120,11 +141,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 4,
   },
+
   actions: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    alignItems: "stretch",
     marginBottom: 26,
+  },
+
+  actionSlot: {
+    width: "48%",
+    marginBottom: 12,
   },
   listCard: {
     backgroundColor: "white",
