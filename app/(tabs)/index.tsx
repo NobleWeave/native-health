@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CareCard } from "../../components/CareCard";
 import { QuickAction } from "../../components/QuickAction";
+import { CDCArticles } from "../../components/CDCArticles";
 
 export default function HomeScreen() {
   return (
@@ -53,6 +54,8 @@ export default function HomeScreen() {
           <Text style={styles.itemTitle}>Medication reminder</Text>
           <Text style={styles.itemText}>Evening medicine · 8:00 PM</Text>
         </View>
+        {/* CDC Health & Wellness Articles */}
+        <CDCArticles />
       </ScrollView>
     </SafeAreaView>
   );
