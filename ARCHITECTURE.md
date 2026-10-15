@@ -1,6 +1,23 @@
 # Architecture
 
+## As-built status
+
+This document distinguishes the running prototype from the intended architecture below. As of 2026-10-15:
+
+- The app is an Expo/React Native TypeScript project using Expo Router file-based routes.
+- The root route redirects to `/auth`; the tab navigator contains Home, Assistant, Care, and Profile. Authentication route guards are not implemented.
+- `AuthProvider` in `context/AuthContext.tsx` restores the Supabase session with `getSession`, listens for auth changes, and exposes sign-in, sign-up, and sign-out. It stores `user`, `session`, and `loading`; it does not load an application profile. Sign-in uses the context, while the sign-up screen calls the Supabase client directly.
+- `services/supabase/client.ts` configures Supabase Auth with AsyncStorage persistence. The sign-up screen creates an Auth user but explicitly skips profile creation. No database migrations or schema files are present in the repository.
+- The care, provider, mission, appointment, and document screens display hard-coded demo content. `data/mockDb.ts` contains typed in-memory sample data and helper functions, but the screens do not use it as a live database.
+- The assistant screen is static UI; there is no intent router, LLM integration, or tool execution flow.
+- The USDA FoodData Central and CDC services, plus the Open Food Facts lookup, are external API integrations. They are separate from the care-workflow backend.
+- There are no implemented RLS policies, Storage policies, database triggers, caregiver-consent enforcement, or persisted care-workflow records in this repository. The sections below describing these are target design, not existing protections or behavior.
+
+Environment variables used by the client are `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `EXPO_PUBLIC_USDA_API_KEY`. Expo public variables are bundled into the client; they must not contain server secrets.
+
 ## 1. System Overview
+
+The following diagram describes the target system, not the current prototype:
 
 ```text
                          ┌──────────────────────┐
@@ -47,7 +64,7 @@
                                           Supabase / APIs
 ```
 
-## 2. Client Architecture
+## 2. Target Client Architecture
 
 Recommended conceptual layers:
 
@@ -90,7 +107,7 @@ Infrastructure configuration such as Supabase client.
 
 Shared TypeScript models.
 
-## 3. Authentication Architecture
+## 3. Target Authentication Architecture
 
 ```text
 Signup
@@ -108,15 +125,14 @@ DB trigger
 profiles
 ```
 
-The client maintains:
+The current client maintains:
 - `user`
 - `session`
-- `profile`
 - `loading`
 
-The `profile.role` controls the application's role-aware experience, but database RLS remains authoritative.
+Profile loading, role-aware navigation, and database authorization have not been implemented. The target architecture requires backend authorization (including RLS); client navigation alone must not be treated as an authorization boundary.
 
-## 4. Care Mission Architecture
+## 4. Target Care Mission Architecture
 
 ```text
 Patient need
@@ -161,7 +177,7 @@ COMPLETED
 
 Cancellation can occur from applicable active states.
 
-## 5. AI Architecture
+## 5. Target AI Architecture (not implemented)
 
 ### Intent Router
 
@@ -218,7 +234,7 @@ User
 
 The LLM should not execute SQL.
 
-## 6. Tool Calling
+## 6. Target Tool Calling (not implemented)
 
 A tool should define:
 - name
@@ -242,7 +258,7 @@ create_consent
 
 Sensitive operations must verify the authenticated user before execution.
 
-## 7. Context Management
+## 7. Target Context Management
 
 Conversation context should not indiscriminately include the entire patient record.
 
@@ -264,7 +280,7 @@ Tool results
 
 Do not send unnecessary medical documents or sensitive information to an external model.
 
-## 8. Document Architecture
+## 8. Target Document Architecture (not implemented)
 
 ```text
 Mobile
@@ -286,7 +302,7 @@ documents table
 
 Access must be controlled by both database authorization and Storage policies.
 
-## 9. Caregiver Architecture
+## 9. Target Caregiver Architecture (not implemented)
 
 ```text
 Patient
@@ -307,7 +323,7 @@ Authorized access
 
 Revocation must immediately remove access.
 
-## 10. Notifications
+## 10. Target Notifications (not implemented)
 
 Notifications are persisted in PostgreSQL.
 
@@ -320,7 +336,7 @@ Examples:
 
 A future push notification service can consume pending notification records.
 
-## 11. Security Boundaries
+## 11. Target Security Boundaries
 
 ```text
 Mobile client
@@ -340,7 +356,7 @@ Supabase
 
 Service-role credentials belong only in trusted server-side environments.
 
-## 12. Scalability Direction
+## 12. Future Scalability Direction
 
 The initial project should remain modular rather than distributed.
 

@@ -1,6 +1,14 @@
 # Database
 
-## 1. Database Platform
+## Current implementation status
+
+Supabase is configured for client authentication, but this repository does not contain a deployed schema definition, SQL migration, seed script, or database access layer for care workflows. The sign-up screen creates a Supabase Auth user and explicitly skips profile creation. The repository therefore does not establish that `profiles`, any of the other tables below, their constraints, RLS policies, triggers, or the Storage bucket exist in the connected Supabase project.
+
+`data/mockDb.ts` is a TypeScript in-memory fixture only. It defines sample types and records for profiles, providers, missions, tasks, appointments, documents, caregivers, consents, provider availability, and notifications. Current screens show hard-coded demo content and do not persist these records.
+
+The mock types are not a database contract: their role and status values differ from several proposed schema definitions below. Reconcile the target model before creating migrations. The schema descriptions in this document are a proposed target model, not a record of the live database. Before relying on any table or access rule, add and apply migrations, then verify the schema and policies in the Supabase project.
+
+## 1. Target Database Platform
 
 CareFlow uses Supabase PostgreSQL.
 
@@ -16,7 +24,7 @@ Application-level user information is stored in:
 public.profiles
 ```
 
-## 2. Entity Overview
+## 2. Proposed Entity Overview
 
 ```text
 auth.users
@@ -57,7 +65,7 @@ profiles
 notifications
 ```
 
-## 3. `profiles`
+## 3. Proposed `profiles`
 
 Purpose: application identity and role.
 
@@ -78,7 +86,7 @@ Important rule:
 
 > Users must not be able to update their own role.
 
-## 4. `patient_health_profiles`
+## 4. Proposed `patient_health_profiles`
 
 Purpose: patient-specific health information.
 
@@ -98,7 +106,7 @@ updated_at TIMESTAMPTZ
 
 This table should be accessible primarily to the patient and explicitly authorized users.
 
-## 5. `providers`
+## 5. Proposed `providers`
 
 Purpose: healthcare provider/service information.
 
@@ -125,7 +133,7 @@ updated_at TIMESTAMPTZ
 
 A provider profile should be associated with an approved provider account where applicable.
 
-## 6. `provider_availability`
+## 6. Proposed `provider_availability`
 
 Purpose: provider availability slots.
 
@@ -147,7 +155,7 @@ end_time > start_time
 
 Provider availability should be managed only by the provider or admin.
 
-## 7. `care_missions`
+## 7. Proposed `care_missions`
 
 Purpose: represents a patient's healthcare coordination objective.
 
@@ -173,7 +181,7 @@ updated_at TIMESTAMPTZ
 completed_at TIMESTAMPTZ
 ```
 
-## 8. `care_tasks`
+## 8. Proposed `care_tasks`
 
 Purpose: actionable steps within a mission.
 
@@ -190,7 +198,7 @@ updated_at TIMESTAMPTZ
 completed_at TIMESTAMPTZ
 ```
 
-## 9. `appointments`
+## 9. Proposed `appointments`
 
 Purpose: scheduled healthcare interactions.
 
@@ -221,9 +229,9 @@ must equal
 care_missions.patient_id
 ```
 
-This is enforced with a PostgreSQL trigger rather than a CHECK subquery.
+If this invariant is adopted, enforce it with a PostgreSQL trigger or another database-level mechanism; it is not implemented in this repository.
 
-## 10. `documents`
+## 10. Proposed `documents`
 
 Purpose: metadata for patient medical documents.
 
@@ -249,7 +257,7 @@ created_at TIMESTAMPTZ
 updated_at TIMESTAMPTZ
 ```
 
-The actual file belongs in Supabase Storage.
+In the target design, the actual file belongs in Supabase Storage. No upload flow or bucket configuration is currently implemented.
 
 Suggested path:
 
@@ -257,7 +265,7 @@ Suggested path:
 medical-documents/{patient_id}/{document_id}/{filename}
 ```
 
-## 11. `caregivers`
+## 11. Proposed `caregivers`
 
 Purpose: represents a relationship between a patient and caregiver.
 
@@ -283,7 +291,7 @@ Unique relationship:
 UNIQUE(patient_id, caregiver_id)
 ```
 
-## 12. `consents`
+## 12. Proposed `consents`
 
 Purpose: explicit permission for caregiver access.
 
@@ -316,7 +324,7 @@ Rules:
 - Consent may expire.
 - Revocation removes access.
 
-## 13. `notifications`
+## 13. Proposed `notifications`
 
 Purpose: in-app notification records.
 
@@ -336,7 +344,7 @@ status ENUM(pending, sent, failed, cancelled)
 created_at TIMESTAMPTZ
 ```
 
-## 14. RLS Model
+## 14. Target RLS Model (not implemented)
 
 ### Patient
 
@@ -374,7 +382,9 @@ It requires:
 4. optional mission match
 5. unexpired consent
 
-## 15. Helper Functions
+The role and access rules below are requirements for a future backend implementation, not active controls in the current app.
+
+## 15. Proposed Helper Functions
 
 Useful security-definer helpers include:
 
@@ -391,11 +401,11 @@ Security-definer functions should:
 - avoid unsafe dynamic SQL
 - perform only the minimum privileged operation needed
 
-## 16. Triggers
+## 16. Proposed Triggers (not implemented)
 
-### New User Trigger
+### New User Trigger (planned)
 
-When a Supabase Auth user is created:
+The intended future flow when a Supabase Auth user is created:
 
 ```text
 auth.users
@@ -408,17 +418,17 @@ profiles
 role = patient
 ```
 
-### Updated Timestamp
+### Updated Timestamp (planned)
 
-Tables with `updated_at` can use:
+Tables with `updated_at` could use:
 
 ```text
 set_updated_at()
 ```
 
-### Appointment Patient Validation
+### Appointment Patient Validation (planned)
 
-A trigger validates:
+The target schema should validate:
 
 ```text
 appointment.patient_id
@@ -428,7 +438,7 @@ mission.patient_id
 
 because cross-table subqueries are not valid in CHECK constraints.
 
-## 17. Indexing
+## 17. Proposed Indexing
 
 Recommended indexes include:
 
@@ -466,7 +476,7 @@ notifications(read_at)
 notifications(status)
 ```
 
-## 18. Data Integrity
+## 18. Target Data Integrity
 
 Prefer:
 - foreign keys
@@ -478,7 +488,7 @@ Prefer:
 
 Do not misuse CHECK constraints for cross-table validation.
 
-## 19. Storage
+## 19. Target Storage
 
 Recommended bucket:
 
