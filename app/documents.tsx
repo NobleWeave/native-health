@@ -78,7 +78,7 @@ export default function DocumentsScreen() {
           {isProcessing ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.buttonText}>Take photo / upload</Text>
+            <Text style={styles.buttonText}>Upload image or pdf</Text>
           )}
         </TouchableOpacity>
 
