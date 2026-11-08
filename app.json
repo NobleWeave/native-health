@@ -38,6 +38,12 @@
           }
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow CareFlow to use your location to find nearby healthcare providers."
+        }
+      ],
       "expo-font",
       "expo-image",
       "expo-status-bar",

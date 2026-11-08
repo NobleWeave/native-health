@@ -18,6 +18,7 @@ import { supabase } from "../services/supabase/client";
 export default function SignupScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -28,7 +29,7 @@ export default function SignupScreen() {
     // Validation
     // -----------------------------
 
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+    if (!name.trim() || !email.trim() || !phone.trim() || !password || !confirmPassword) {
       Alert.alert("Missing information", "Please fill in all required fields.");
       return;
     }
@@ -51,10 +52,22 @@ export default function SignupScreen() {
       return;
     }
 
+    // Basic phone validation (simple check for digits and length)
+    const phoneRegex = /^\d{10}$/;
+
+    if (!phoneRegex.test(phone.trim())) {
+      Alert.alert("Invalid phone number", "Please enter a valid 10-digit phone number.");
+      return;
+    }
+
     try {
       setLoading(true);
 
       const normalizedEmail = email.trim().toLowerCase();
+      let formattedPhone = phone.trim();
+      if (!formattedPhone.startsWith('+91')) {
+          formattedPhone = `+91${formattedPhone}`;
+      }
 
       // -----------------------------
       // Create Supabase Auth account
@@ -63,6 +76,12 @@ export default function SignupScreen() {
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
+        options: {
+          data: {
+            full_name: name.trim(),
+            phone: formattedPhone,
+          },
+        }
       });
 
       // -----------------------------
@@ -195,6 +214,24 @@ export default function SignupScreen() {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
+
+          {/* Phone */}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your phone number"
+              placeholderTextColor="#94A3B8"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
               autoCapitalize="none"
               autoCorrect={false}
               editable={!loading}
