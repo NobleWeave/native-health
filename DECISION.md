@@ -2,6 +2,8 @@
 
 This document records important decisions and their rationale.
 
+**Decision status is not implementation status.** These decisions describe the intended product unless the implementation notes explicitly say otherwise. The current repository is an Expo prototype with Supabase Auth configured, but without a persisted care-workflow schema or backend authorization policies.
+
 ## D001 — Supabase is the backend platform
 
 **Decision:** Use Supabase for authentication, PostgreSQL, Storage, and backend data access.
@@ -12,20 +14,24 @@ This document records important decisions and their rationale.
 - Fast development for a semester project
 - PostgreSQL is suitable for relational healthcare workflows
 
-**Status:** Accepted
+**Implementation status:** Supabase Auth client is configured. No care-workflow schema, Storage bucket, or database policy is defined in this repository.
+
+**Decision status:** Accepted
 
 ---
 
 ## D002 — React Native is the client
 
-**Decision:** Build the mobile application using React Native and TypeScript.
+**Decision:** Build the mobile application using Expo, React Native, and TypeScript, with Expo Router for file-based navigation.
 
 **Reason:**
 - Mobile-first healthcare workflow
 - Shared TypeScript model
 - Existing project direction
 
-**Status:** Accepted
+**Implementation status:** Implemented as the current client foundation.
+
+**Decision status:** Accepted
 
 ---
 
@@ -36,16 +42,12 @@ This document records important decisions and their rationale.
 **Reason:**
 Allowing role selection from the client would create a privilege-escalation risk.
 
-**Implementation:**
-The `handle_new_user()` database trigger creates a `profiles` row with:
+**Implementation status:**
+The signup screen currently creates a Supabase Auth user and skips profile creation. No `handle_new_user()` trigger or profile schema is defined in this repository. The target flow is for trusted backend code to assign the patient role; the client must not choose a privileged role.
 
-```text
-role = patient
-```
+Provider/admin roles require controlled administrative workflows before those roles are introduced.
 
-Provider/admin roles require controlled administrative workflows.
-
-**Status:** Accepted
+**Decision status:** Accepted
 
 ---
 
@@ -56,7 +58,9 @@ Provider/admin roles require controlled administrative workflows.
 **Reason:**
 Frontend route protection can be bypassed. Database-level authorization cannot be replaced by UI logic.
 
-**Status:** Accepted
+**Implementation status:** No application tables or RLS policies are defined in this repository.
+
+**Decision status:** Accepted
 
 ---
 
@@ -70,7 +74,9 @@ Frontend route protection can be bypassed. Database-level authorization cannot b
 - Reduced exposure of sensitive data
 - Better future extensibility
 
-**Status:** Accepted
+**Implementation status:** No persisted health-profile table is defined in this repository.
+
+**Decision status:** Accepted
 
 ---
 
@@ -81,7 +87,9 @@ Frontend route protection can be bypassed. Database-level authorization cannot b
 **Reason:**
 PostgreSQL should not be used as a general binary-file store.
 
-**Status:** Accepted
+**Implementation status:** No document upload flow, Storage bucket, or metadata table is defined in this repository.
+
+**Decision status:** Accepted
 
 ---
 
@@ -105,7 +113,9 @@ Intent Router
   +--> Action ------> Tool --> Application --> Database
 ```
 
-**Status:** Accepted
+**Implementation status:** The assistant is currently static UI; intent routing and LLM responses are not implemented.
+
+**Decision status:** Accepted
 
 ---
 
@@ -120,18 +130,22 @@ Intent Router
 - Predictable side effects
 - Reduced prompt-injection impact
 
-**Status:** Accepted
+**Implementation status:** No LLM or tool-calling integration is implemented.
+
+**Decision status:** Accepted
 
 ---
 
 ## D009 — Cross-table appointment validation uses a trigger
 
-**Decision:** Validate that `appointments.patient_id` matches the mission's patient using a PostgreSQL trigger.
+**Decision:** If appointments are persisted, validate that `appointments.patient_id` matches the mission's patient using a database-level mechanism such as a PostgreSQL trigger.
 
 **Reason:**
 PostgreSQL does not permit a subquery inside a CHECK constraint.
 
-**Status:** Accepted
+**Implementation status:** No appointments table or validation trigger is defined in this repository.
+
+**Decision status:** Accepted
 
 ---
 
@@ -149,7 +163,9 @@ Consent may be:
 - mission-specific
 - permission-specific
 
-**Status:** Accepted
+**Implementation status:** Caregiver and consent examples exist only in the in-memory mock data; consent is not enforced.
+
+**Decision status:** Accepted
 
 ---
 
@@ -166,7 +182,9 @@ Potential criteria:
 - availability
 - accessibility
 
-**Status:** Accepted
+**Implementation status:** The provider screen currently displays static sample cards; there is no implemented matching or filtering.
+
+**Decision status:** Accepted
 
 ---
 
@@ -177,4 +195,4 @@ Potential criteria:
 **Reason:**
 The project has a limited implementation window and must remain demonstrable and maintainable.
 
-**Status:** Accepted
+**Decision status:** Accepted
