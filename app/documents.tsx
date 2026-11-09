@@ -29,6 +29,11 @@ export default function DocumentsScreen() {
       // Convert the local file URI to a standard Blob (Fix for Expo's fetch)
       const fileResponse = await fetch(file.uri);
       const blob = await fileResponse.blob();
+      const apiKey = process.env.EXPO_PUBLIC_OCR_API_KEY;
+
+      if (!apiKey) {
+        throw new Error("OCR API key is not configured.");
+      }
 
       // Build the form data using the Blob
       const formData = new FormData();
@@ -40,7 +45,7 @@ export default function DocumentsScreen() {
       const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
         headers: {
-          'apikey': process.env.EXPO_PUBLIC_OCR_API_KEY, 
+          apikey: apiKey,
         },
         body: formData,
       });
