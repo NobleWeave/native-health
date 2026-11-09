@@ -1,23 +1,28 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 
 export function CareCard({
   title,
   progress,
   next,
+  onPress,
 }: {
   title: string;
   progress: string;
   next: string;
+  onPress?: () => void;
 }) {
   return (
-    <View style={styles.card}>
+    <Pressable 
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]} 
+      onPress={onPress}
+    >
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.progress}>{progress}</Text>
       <View style={styles.bar}>
         <View style={styles.fill} />
       </View>
       <Text style={styles.next}>{next}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -29,6 +34,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E4E8E4",
     marginBottom: 24,
+  },
+  pressed: {
+    opacity: 0.7,
+    backgroundColor: "#F7F9F7",
   },
   title: { fontSize: 16, fontWeight: "700", color: "#17201B" },
   progress: { fontSize: 12, color: "#718078", marginTop: 5 },

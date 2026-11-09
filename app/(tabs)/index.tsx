@@ -1,11 +1,44 @@
-import { Link } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Link, router } from "expo-router";
+import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CareCard } from "../../components/CareCard";
 import { CDCArticles } from "../../components/CDCArticles";
 import { QuickAction } from "../../components/QuickAction";
+import { useAuth } from "../../context/AuthContext";
+import { getActiveMissionsForUser } from "../../services/missionEngine";
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  const [activeMission, setActiveMission] = useState<any | null>(null);
+  const [loadingMission, setLoadingMission] = useState(true);
+
+  const initial = user?.user_metadata?.full_name?.charAt(0).toUpperCase() || "U";
+
+  useEffect(() => {
+    if (user) {
+      getActiveMissionsForUser(user.id)
+      .then((data) => {
+        if (data && data.length > 0) {
+          const trulyActive = data.find((m: any) => {
+            const tasks = m.care_tasks || [];
+            if (tasks.length === 0) return true; // Keep if no tasks yet
+            const isAllDone = tasks.every((t: any) => t.status === "completed");
+            return !isAllDone;
+          });
+            
+          setActiveMission(trulyActive || null);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoadingMission(false));
+    }
+  }, [user]);
+
+  const completedTasks = activeMission?.care_tasks?.filter((t: any) => t.status === "completed").length || 0;
+  const totalTasks = activeMission?.care_tasks?.length || 0;
+  const nextTask = activeMission?.care_tasks?.find((t: any) => t.status !== "completed")?.title || "No pending tasks";
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -16,12 +49,12 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>S</Text>
+            <Text style={styles.avatarText}>{initial}</Text>
           </View>
         </View>
 
         <Link href="/(tabs)/assistant" asChild>
-          <View style={styles.chatBox}>
+          <Pressable style={styles.chatBox}>
             <Text style={styles.chatTitle}>Talk to your care assistant</Text>
 
             <Text style={styles.chatSubtitle}>
@@ -31,7 +64,7 @@ export default function HomeScreen() {
             <View style={styles.chatButton}>
               <Text style={styles.chatButtonText}>Start conversation →</Text>
             </View>
-          </View>
+          </Pressable>
         </Link>
 
         <Text style={styles.sectionTitle}>Quick actions</Text>
@@ -88,11 +121,22 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>Active care mission</Text>
 
-        <CareCard
-          title="Mother's knee consultation"
-          progress="3 of 5 tasks complete"
-          next="Appointment tomorrow · 3:30 PM"
-        />
+        {loadingMission ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#285C3B" />
+          </View>
+        ) : activeMission ? (
+          <CareCard
+            title={activeMission.title}
+            progress={`${completedTasks} of ${totalTasks} tasks complete`}
+            next={`Next: ${nextTask}`}
+            onPress={() => router.push(`/mission/${activeMission.id}`)}
+          />
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No active missions right now.</Text>
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Today</Text>
 
@@ -227,4 +271,27 @@ const styles = StyleSheet.create({
     color: "#69736D",
     marginTop: 5,
   },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "white",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E4E8E4",
+    marginBottom: 24,
+  },
+  emptyCard: {
+    backgroundColor: "white",
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E4E8E4",
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#718078",
+    fontSize: 14,
+  }
 });
