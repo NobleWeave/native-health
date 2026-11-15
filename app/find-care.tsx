@@ -1,13 +1,15 @@
 import React, { useState } from "react";
-import { 
-  StyleSheet, Text, View, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert 
+import {
+  StyleSheet, Text, View, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Location from "expo-location";
+import { router } from "expo-router";
 import { ProviderCard } from "../components/ProviderCard";
 import { findAndRankCare, RankedProvider } from "../services/navigator";
+import { useAuth } from "../context/AuthContext";
 
 export default function FindCareScreen() {
+  const { location } = useAuth();
   const [speciality, setSpeciality] = useState("Orthopaedics");
   const [maxCost, setMaxCost] = useState("500");
   const [maxDistance, setMaxDistance] = useState("10");
@@ -22,36 +24,11 @@ export default function FindCareScreen() {
   const handleSearch = async () => {
     setLoading(true);
     setHasSearched(true);
-    setLocationStatus("Acquiring location...");
-    
-    let userLat = 23.83; // Fallback latitude
-    let userLng = 91.28; // Fallback longitude
-
-    try {
-      // 1. Request permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          "Permission Denied", 
-          "CareFlow needs location access to find nearby providers. Using default location."
-        );
-      } else {
-        // 2. Fetch current coordinates
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        userLat = location.coords.latitude;
-        userLng = location.coords.longitude;
-      }
-    } catch (error) {
-      console.error("Location error:", error);
-      Alert.alert("Location Error", "Could not fetch current location. Using default.");
-    }
-
     setLocationStatus("Searching providers...");
 
-    // 3. Execute search with real coordinates
+    const userLat = location?.lat || 23.83; // Fallback latitude
+    const userLng = location?.lng || 91.28; // Fallback longitude
+
     const constraints = {
       speciality: speciality.trim(),
       maxCost: parseInt(maxCost) || 1000,
@@ -71,7 +48,7 @@ export default function FindCareScreen() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          
+
           <View style={styles.header}>
             <Text style={styles.title}>Find care</Text>
             <Text style={styles.sub}>Matched to your needs, budget, and constraints.</Text>
@@ -124,13 +101,14 @@ export default function FindCareScreen() {
               <Text style={styles.sectionTitle}>
                 {results.length > 0 ? `Top Matches (${results.length})` : "No providers found"}
               </Text>
-              
+
               {results.map((provider) => (
                 <ProviderCard
                   key={provider.id}
                   name={provider.name}
                   meta={`${provider.metaString} · ${(provider.score * 100).toFixed(0)}% Match`}
                   reason={provider.reasonsString || provider.speciality}
+                  onPress={() => router.push({ pathname: "/provider/[id]", params: { id: provider.id } })}
                 />
               ))}
             </View>
@@ -148,7 +126,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: 20 },
   title: { fontSize: 26, fontWeight: "700", color: "#17201B" },
   sub: { color: "#718078", marginTop: 5 },
-  
+
   card: {
     backgroundColor: "white",
     borderRadius: 18,
@@ -171,7 +149,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#0F172A",
   },
-  
+
   searchButton: {
     height: 54,
     borderRadius: 14,
@@ -183,7 +161,7 @@ const styles = StyleSheet.create({
   searchButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   loadingText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
-  
+
   resultsContainer: { marginTop: 10 },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#17201B", marginBottom: 16 },
 });

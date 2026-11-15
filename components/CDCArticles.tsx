@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -35,25 +35,53 @@ export function CDCArticles() {
   const [articles, setArticles] = useState<CDCArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const mountedRef = useRef(true);
 
   const loadArticles = useCallback(async () => {
+    if (!mountedRef.current) return;
+
     setLoading(true);
     setError(false);
 
     try {
       const result = await getCDCArticles();
+      if (!mountedRef.current) return;
       setArticles(result);
     } catch (err) {
       console.error("Failed to load CDC articles:", err);
+      if (!mountedRef.current) return;
       setError(true);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void loadArticles();
-  }, [loadArticles]);
+    mountedRef.current = true;
+    const loadInitialArticles = async () => {
+      try {
+        const result = await getCDCArticles();
+        if (!mountedRef.current) return;
+        setArticles(result);
+      } catch (err) {
+        console.error("Failed to load CDC articles:", err);
+        if (!mountedRef.current) return;
+        setError(true);
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInitialArticles();
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const openArticle = async (url: string) => {
     try {

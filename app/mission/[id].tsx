@@ -20,12 +20,12 @@ const STATE_LABELS: Record<MissionState, string> = {
 export default function MissionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  
+
   const [mission, setMission] = useState<any>(null);
   const [events, setEvents] = useState<MissionEvent[]>([]);
   const [caregivers, setCaregivers] = useState<any[]>([]);
   const [consents, setConsents] = useState<any[]>([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [isPatient, setIsPatient] = useState(false);
   const [canManage, setCanManage] = useState(false);
@@ -39,7 +39,7 @@ export default function MissionDetailsScreen() {
   const loadMissionData = useCallback(async () => {
     try {
       const [missionData, eventsData, consentsData] = await Promise.all([
-        getMissionDetails(id), 
+        getMissionDetails(id),
         getMissionEvents(id),
         getMissionConsents(id)
       ]);
@@ -102,7 +102,7 @@ export default function MissionDetailsScreen() {
 
   const handleToggleTask = async (taskId: string, currentStatus: string) => {
     if (!canManage) return Alert.alert("Restricted", "You only have view access for this mission.");
-    
+
     const newStatus = currentStatus === "completed" ? "pending" : "completed";
     try {
         await updateTaskStatus(taskId, mission.id, newStatus, user!.id);
@@ -148,12 +148,12 @@ export default function MissionDetailsScreen() {
 
   const handleRevokeConsent = (caregiverId: string, name: string) => {
     Alert.alert(
-      "Revoke Access", 
+      "Revoke Access",
       `Remove ${name}'s access to this mission?`,
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Revoke", 
+        {
+          text: "Revoke",
           style: "destructive",
           onPress: async () => {
             try {
@@ -189,17 +189,28 @@ export default function MissionDetailsScreen() {
               <Text style={styles.eyebrow}>ACTIVE MISSION</Text>
               <Text style={styles.title}>{mission?.title}</Text>
             </View>
-            
-            {/* Share Button (Only Patient) */}
-            {isPatient && (
-              <Pressable style={styles.shareBtn} onPress={() => setShowSharePanel(!showSharePanel)}>
-                <Ionicons name="share-social-outline" size={18} color="#285C3B" />
-                <Text style={styles.shareBtnText}>Share</Text>
+
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {/* NEW: Chat Shortcut Button */}
+              <Pressable
+                style={styles.shareBtn}
+                onPress={() => router.push(`/(tabs)/assistant?missionId=${mission?.id}`)}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#285C3B" />
+                <Text style={styles.shareBtnText}>Chat</Text>
               </Pressable>
-            )}
+
+              {/* Share Button (Only Patient) */}
+              {isPatient && (
+                <Pressable style={styles.shareBtn} onPress={() => setShowSharePanel(!showSharePanel)}>
+                  <Ionicons name="share-social-outline" size={18} color="#285C3B" />
+                  <Text style={styles.shareBtnText}>Share</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
           <Text style={styles.sub}>{mission?.description}</Text>
-          
+
           {!isPatient && (
              <View style={styles.roleBanner}>
                 <Ionicons name="information-circle-outline" size={16} color="#315C3E" />
@@ -226,8 +237,8 @@ export default function MissionDetailsScreen() {
                       /* NEW: Show current role and Revoke button */
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <Text style={styles.existingText}>{existing.permissions?.manage ? "Manager" : "Viewer"}</Text>
-                        <Pressable 
-                          style={styles.miniBtnDanger} 
+                        <Pressable
+                          style={styles.miniBtnDanger}
                           onPress={() => handleRevokeConsent(cg.caregiver.id, cg.caregiver.full_name)}
                         >
                           <Text style={styles.miniBtnDangerText}>Revoke</Text>
@@ -267,7 +278,7 @@ export default function MissionDetailsScreen() {
         {/* Add Task Input */}
         {isAddingTask && canManage && (
           <View style={styles.addTaskRow}>
-            <TextInput 
+            <TextInput
               style={styles.taskInput}
               placeholder="E.g., Call doctor's office..."
               value={newTaskTitle}
@@ -285,9 +296,9 @@ export default function MissionDetailsScreen() {
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Delegate: {assigningTask.title}</Text>
             {caregivers.map((cg) => (
-              <Pressable 
-                key={cg.id} 
-                style={styles.cgOption} 
+              <Pressable
+                key={cg.id}
+                style={styles.cgOption}
                 onPress={() => handleConfirmAssignment(cg.caregiver.id)}
               >
                 <Ionicons name="person-circle-outline" size={24} color="#285C3B" />
@@ -295,13 +306,13 @@ export default function MissionDetailsScreen() {
               </Pressable>
             ))}
             {assigningTask.assignee && isPatient ? (
-              <Pressable 
-                style={[styles.cancelBtn, { backgroundColor: "#FFF7F7", borderColor: "#F5DADA", borderWidth: 1, marginTop: 10 }]} 
+              <Pressable
+                style={[styles.cancelBtn, { backgroundColor: "#FFF7F7", borderColor: "#F5DADA", borderWidth: 1, marginTop: 10 }]}
                 onPress={handleUnassignTask}
               >
                 <Text style={[styles.cancelBtnText, { color: "#C0392B" }]}>Remove Assignment</Text>
               </Pressable>
-            ) : null} 
+            ) : null}
             <Pressable style={styles.cancelBtn} onPress={() => setAssigningTask(null)}>
               <Text style={styles.cancelBtnText}>Cancel Assignment</Text>
             </Pressable>
@@ -313,14 +324,14 @@ export default function MissionDetailsScreen() {
             ) : (
               mission?.care_tasks?.map((task: any) => {
                 // To show who it's assigned to
-                const assigneeName = task.assigned_to 
+                const assigneeName = task.assigned_to
                   ? (task.assigned_to === user?.id ? "You" : "Caregiver") // Real name requires a JOIN in getMissionDetails
                   : null;
-                
+
                 return (
-                  <MissionTask 
-                    key={task.id} 
-                    text={task.title} 
+                  <MissionTask
+                    key={task.id}
+                    text={task.title}
                     done={task.status === "completed"}
                     assigneeName={assigneeName}
                     onPress={canManage ? () => handleToggleTask(task.id, task.status) : undefined}
@@ -351,7 +362,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 11, letterSpacing: 1.2, fontWeight: "800", color: "#718078" },
   title: { fontSize: 28, fontWeight: "800", color: "#17201B", marginTop: 5 },
   sub: { color: "#69736D", fontSize: 14, lineHeight: 21 },
-  
+
   shareBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#E6EFE7", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 4 },
   shareBtnText: { color: "#285C3B", fontWeight: "700", fontSize: 13 },
   roleBanner: { flexDirection: "row", backgroundColor: "#DCE8DF", padding: 10, borderRadius: 8, marginTop: 12, alignItems: "center", gap: 6 },
@@ -359,17 +370,17 @@ const styles = StyleSheet.create({
 
   statusCard: { backgroundColor: "#E6EFE7", borderRadius: 18, padding: 20, marginBottom: 24 },
   statusLabel: { fontSize: 20, fontWeight: "800", color: "#17201B" },
-  
+
   sectionTitle: { fontSize: 18, fontWeight: "800", color: "#17201B" },
   addBtnText: { color: "#285C3B", fontWeight: "700", fontSize: 14 },
-  
+
   addTaskRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   taskInput: { flex: 1, height: 48, backgroundColor: "white", borderRadius: 12, borderWidth: 1, borderColor: "#E4E8E4", paddingHorizontal: 14 },
   saveTaskBtn: { width: 48, height: 48, backgroundColor: "#285C3B", borderRadius: 12, alignItems: "center", justifyContent: "center" },
 
   taskCard: { backgroundColor: "white", borderRadius: 18, padding: 18, borderWidth: 1, borderColor: "#E4E8E4", marginTop: 10 },
   emptyText: { color: "#718078", fontStyle: "italic" },
-  
+
   panel: { backgroundColor: "#FFF", padding: 20, borderRadius: 18, borderWidth: 2, borderColor: "#285C3B", marginBottom: 20, marginTop: 10 },
   panelTitle: { fontSize: 16, fontWeight: "700", color: "#17201B", marginBottom: 16 },
   cgOption: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E4E8E4" },

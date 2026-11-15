@@ -15,6 +15,7 @@ export interface RankedProvider {
   speciality: string;
   distance_km: number;
   consultation_fee: number;
+  phone: string | null;
   score: number;
   metaString: string;
   reasonsString: string;
@@ -32,7 +33,6 @@ const WEIGHTS = {
 };
 
 export async function findAndRankCare(constraints: SearchConstraints): Promise<RankedProvider[]> {
-  // 1. Fetch geospatial + specialty filtered providers from RPC
   const { data: providers, error } = await supabase.rpc("search_providers", {
     user_lat: constraints.location.lat,
     user_lng: constraints.location.lng,
@@ -49,7 +49,7 @@ export async function findAndRankCare(constraints: SearchConstraints): Promise<R
   const ranked = providers.map((provider: any) => {
     let score = 0;
     const reasons: string[] = [];
-    const meta: string[] = [`${provider.distance_km.toFixed(1)} km`, `₹${provider.consultation_fee}`];
+    const meta: string[] = [`${Number(provider.distance_km).toFixed(1)} km`, `₹${provider.consultation_fee}`];
 
     // Medical Fit (30%) - Pre-filtered by SQL, but we grant the weight if it matches perfectly
     if (provider.speciality?.toLowerCase() === constraints.speciality.toLowerCase()) {
@@ -100,6 +100,7 @@ export async function findAndRankCare(constraints: SearchConstraints): Promise<R
       speciality: provider.speciality,
       distance_km: provider.distance_km,
       consultation_fee: provider.consultation_fee,
+      phone: provider.phone || null,
       score,
       metaString: meta.join(" · "),
       reasonsString: reasons.slice(0, 2).join(" · ") // Keep UI clean with top 2 reasons
