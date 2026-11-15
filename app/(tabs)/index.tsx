@@ -1,6 +1,13 @@
-import React, { useEffect, useState } from "react";
 import { Link, router } from "expo-router";
-import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CareCard } from "../../components/CareCard";
 import { CDCArticles } from "../../components/CDCArticles";
@@ -13,31 +20,38 @@ export default function HomeScreen() {
   const [activeMission, setActiveMission] = useState<any | null>(null);
   const [loadingMission, setLoadingMission] = useState(true);
 
-  const initial = user?.user_metadata?.full_name?.charAt(0).toUpperCase() || "U";
+  const initial =
+    user?.user_metadata?.full_name?.charAt(0).toUpperCase() || "U";
 
   useEffect(() => {
     if (user) {
       getActiveMissionsForUser(user.id)
-      .then((data) => {
-        if (data && data.length > 0) {
-          const trulyActive = data.find((m: any) => {
-            const tasks = m.care_tasks || [];
-            if (tasks.length === 0) return true; // Keep if no tasks yet
-            const isAllDone = tasks.every((t: any) => t.status === "completed");
-            return !isAllDone;
-          });
-            
-          setActiveMission(trulyActive || null);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoadingMission(false));
+        .then((data) => {
+          if (data && data.length > 0) {
+            const trulyActive = data.find((m: any) => {
+              const tasks = m.care_tasks || [];
+              if (tasks.length === 0) return true; // Keep if no tasks yet
+              const isAllDone = tasks.every(
+                (t: any) => t.status === "completed",
+              );
+              return !isAllDone;
+            });
+
+            setActiveMission(trulyActive || null);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setLoadingMission(false));
     }
   }, [user]);
 
-  const completedTasks = activeMission?.care_tasks?.filter((t: any) => t.status === "completed").length || 0;
+  const completedTasks =
+    activeMission?.care_tasks?.filter((t: any) => t.status === "completed")
+      .length || 0;
   const totalTasks = activeMission?.care_tasks?.length || 0;
-  const nextTask = activeMission?.care_tasks?.find((t: any) => t.status !== "completed")?.title || "No pending tasks";
+  const nextTask =
+    activeMission?.care_tasks?.find((t: any) => t.status !== "completed")
+      ?.title || "No pending tasks";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -117,6 +131,14 @@ export default function HomeScreen() {
               href="/daily-log"
             />
           </View>
+        </View>
+
+        <View style={styles.actionSlot}>
+          <QuickAction
+            icon="chatbubble-ellipses-outline"
+            title="Ask my health records"
+            href={"/ragassistant" as any}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Active care mission</Text>
@@ -293,5 +315,5 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "#718078",
     fontSize: 14,
-  }
+  },
 });
