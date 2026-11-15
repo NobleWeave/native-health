@@ -10,9 +10,13 @@ import {
   Text,
   TextInput,
   View,
+  ActivityIndicator,
 } from "react-native";
+import { useAuth } from "@/context/AuthContext";
+import { createPatientHealthProfile } from "@/services/profileModel";
 
 export default function GetStartedScreen() {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
 
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -20,39 +24,71 @@ export default function GetStartedScreen() {
   const [allergies, setAllergies] = useState("");
   const [conditions, setConditions] = useState("");
   const [medications, setMedications] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1) {
       setStep(2);
       return;
     }
 
-    // For now we simply complete onboarding.
-    // Medical data will be persisted once the medical_profiles
-    // table is added.
+    try {
+      if (user) {
+        setLoading(true);
+        // Convert DD/MM/YYYY to YYYY-MM-DD for PostgreSQL DATE type
+        let formattedDate = null;
+        if (dateOfBirth) {
+          const [day, month, year] = dateOfBirth.split("/");
+          if (day && month && year) formattedDate = `${year}-${month}-${day}`;
+        }
 
-    console.log({
-      dateOfBirth,
-      bloodGroup,
-      allergies,
-      conditions,
-      medications,
-    });
-
-    Alert.alert(
-      "You're all set!",
-      "Your healthcare profile has been prepared.",
-      [
-        {
-          text: "Continue",
-          onPress: () => router.replace("/(tabs)"),
-        },
-      ],
-    );
+        await createPatientHealthProfile(user.id, {
+          date_of_birth: formattedDate,
+          blood_group: bloodGroup.trim() || null,
+          allergies: allergies.trim() || null,
+          conditions: conditions.trim() || null,
+          medications: medications.trim() || null,
+        });
+        
+        Alert.alert(
+          "You're all set!",
+          "Your healthcare profile has been prepared.",
+          [
+            {
+              text: "Continue",
+              onPress: () => router.replace("/(tabs)"),
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      console.error("Error saving health profile:", error);
+      Alert.alert(
+        "Setup Error",
+        "There was an issue saving your health profile. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSkip = () => {
-    router.replace("/(tabs)");
+  const handleSkip = async () => {
+    try {
+      if (user) {
+        setLoading(true);
+        await createPatientHealthProfile(user.id, {}); // Create a blank profile
+        router.replace("/(tabs)");
+      }
+
+    } catch (error) {
+      console.error("Error creating blank health profile:", error);
+      Alert.alert(
+        "Setup Error",
+        "There was an issue creating your health profile. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -177,14 +213,22 @@ export default function GetStartedScreen() {
         {/* Actions */}
 
         <View style={styles.actions}>
-          <Pressable style={styles.primaryButton} onPress={handleNext}>
-            <Text style={styles.primaryButtonText}>
-              {step === 1 ? "Continue" : "Finish Setup"}
-            </Text>
+          <Pressable 
+            style={[styles.primaryButton, loading && { opacity: 0.7 }]} 
+            onPress={handleNext}
+            disabled={loading}
+          >
+            {loading && step === 2 ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {step === 1 ? "Continue" : "Finish Setup"}
+              </Text>
+            )}
           </Pressable>
 
-          <Pressable style={styles.skipButton} onPress={handleSkip}>
-            <Text style={styles.skipText}>Skip for now</Text>
+          <Pressable style={styles.skipButton} onPress={handleSkip} disabled={loading}>
+            <Text style={styles.skipText}>{loading && step === 1 ? "Skipping..." : "Skip for now"}</Text>
           </Pressable>
         </View>
 

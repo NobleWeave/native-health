@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { 
-  StyleSheet, Text, View, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert 
+  StyleSheet, Text, View, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Location from "expo-location";
+import { router } from "expo-router";
 import { ProviderCard } from "../components/ProviderCard";
 import { findAndRankCare, RankedProvider } from "../services/navigator";
+import { useAuth } from "../context/AuthContext";
 
 export default function FindCareScreen() {
+  const { location } = useAuth();
   const [speciality, setSpeciality] = useState("Orthopaedics");
   const [maxCost, setMaxCost] = useState("500");
   const [maxDistance, setMaxDistance] = useState("10");
@@ -22,36 +24,11 @@ export default function FindCareScreen() {
   const handleSearch = async () => {
     setLoading(true);
     setHasSearched(true);
-    setLocationStatus("Acquiring location...");
-    
-    let userLat = 23.83; // Fallback latitude
-    let userLng = 91.28; // Fallback longitude
-
-    try {
-      // 1. Request permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          "Permission Denied", 
-          "CareFlow needs location access to find nearby providers. Using default location."
-        );
-      } else {
-        // 2. Fetch current coordinates
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        userLat = location.coords.latitude;
-        userLng = location.coords.longitude;
-      }
-    } catch (error) {
-      console.error("Location error:", error);
-      Alert.alert("Location Error", "Could not fetch current location. Using default.");
-    }
-
     setLocationStatus("Searching providers...");
+    
+    const userLat = location?.lat || 23.83; // Fallback latitude
+    const userLng = location?.lng || 91.28; // Fallback longitude
 
-    // 3. Execute search with real coordinates
     const constraints = {
       speciality: speciality.trim(),
       maxCost: parseInt(maxCost) || 1000,
@@ -131,6 +108,7 @@ export default function FindCareScreen() {
                   name={provider.name}
                   meta={`${provider.metaString} · ${(provider.score * 100).toFixed(0)}% Match`}
                   reason={provider.reasonsString || provider.speciality}
+                  onPress={() => router.push(`/provider/${provider.id}`)}
                 />
               ))}
             </View>

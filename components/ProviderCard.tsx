@@ -1,20 +1,25 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 
 export function ProviderCard({
   name,
   meta,
   reason,
+  onPress,
 }: {
   name: string;
   meta: string;
   reason: string;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.name}>{name}</Text>
-      <Text style={styles.meta}>{meta}</Text>
-      <Text style={styles.reason}>{reason}</Text>
-    </View>
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.7, backgroundColor: "#F7F9F7" }]}
+      onPress={onPress}
+    >
+        <Text style={styles.name}>{name}</Text>
+        <Text style={styles.meta}>{meta}</Text>
+        <Text style={styles.reason}>{reason}</Text>
+    </Pressable>
   );
 }
 

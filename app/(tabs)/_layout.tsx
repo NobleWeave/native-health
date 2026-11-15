@@ -1,7 +1,21 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../context/AuthContext";
+import { ActivityIndicator, View } from "react-native";
 
 export default function TabLayout() {
+  const { role, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#F7F8F6", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#285C3B" />
+      </View>
+    );
+  }
+
+  const isProvider = role === "provider";
+
   return (
     <Tabs
       screenOptions={{
@@ -30,10 +44,12 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Provider Only Tab */}
       <Tabs.Screen
         name="assistant"
         options={{
           title: "Assistant",
+          href: isProvider ? null : "/(tabs)/assistant",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble-ellipses-outline" color={color} size={size} />
           ),
@@ -43,11 +59,22 @@ export default function TabLayout() {
         name="care"
         options={{
           title: "Care",
+          href: isProvider ? null : "/(tabs)/care",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="checkmark-circle-outline" color={color} size={size} />
           ),
         }}
       />
+      {/* Provider Only Tab */}
+      <Tabs.Screen
+        name="schedule"
+        options={{
+          title: "Schedule",
+          href: !isProvider ? null : "/(tabs)/schedule",
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} />,
+        }}
+      />
+      {/* Shared Tab */}
       <Tabs.Screen
         name="profile"
         options={{
