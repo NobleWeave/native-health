@@ -113,7 +113,7 @@ export default function AuthScreen() {
             style={styles.signupButton}
             onPress={() => router.push("/signup")}>
             <Text style={styles.signupText}>
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Text style={styles.signupLink}>Sign up</Text>
             </Text>
           </Pressable>

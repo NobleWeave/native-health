@@ -12,15 +12,16 @@ import {
   TextInput,
   View,
 } from "react-native";
-
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../services/supabase/client";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
+  const [isProvider, setIsProvider] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
@@ -28,7 +29,13 @@ export default function SignupScreen() {
     // Validation
     // -----------------------------
 
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+    if (
+      !name.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !password ||
+      !confirmPassword
+    ) {
       Alert.alert("Missing information", "Please fill in all required fields.");
       return;
     }
@@ -51,24 +58,42 @@ export default function SignupScreen() {
       return;
     }
 
+    // Basic phone validation (simple check for digits and length)
+    const phoneRegex = /^\d{10}$/;
+
+    if (!phoneRegex.test(phone.trim())) {
+      Alert.alert(
+        "Invalid phone number",
+        "Please enter a valid 10-digit phone number.",
+      );
+      return;
+    }
+
     try {
       setLoading(true);
 
       const normalizedEmail = email.trim().toLowerCase();
+      let formattedPhone = phone.trim();
+      if (!formattedPhone.startsWith("+91")) {
+        formattedPhone = `+91${formattedPhone}`;
+      }
 
-      // -----------------------------
+      const assignedRole = isProvider ? "provider" : "patient";
+
       // Create Supabase Auth account
-      // -----------------------------
-
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
+        options: {
+          data: {
+            full_name: name.trim(),
+            phone: formattedPhone,
+            role: assignedRole,
+          },
+        },
       });
 
-      // -----------------------------
       // Supabase signup error
-      // -----------------------------
-
       if (error) {
         console.error("Signup error:", error);
 
@@ -95,19 +120,13 @@ export default function SignupScreen() {
               },
             ],
           );
-
           return;
         }
-
         Alert.alert("Signup failed", error.message);
-
         return;
       }
 
-      // -----------------------------
       // Make sure user was created
-      // -----------------------------
-
       if (!data.user) {
         Alert.alert(
           "Signup failed",
@@ -119,24 +138,14 @@ export default function SignupScreen() {
 
       console.log("Supabase account created:", data.user.id);
 
-      // -----------------------------
-      // Profile creation temporarily
-      // skipped because of RLS.
-      //
-      // We will handle this later using
-      // a proper database trigger.
-      // -----------------------------
-
-      console.log("Profile creation skipped for now.");
-
-      // -----------------------------
       // Continue onboarding
-      // -----------------------------
-
-      router.replace("/onboarding/get-started");
+      if (isProvider) {
+        router.replace({ pathname: "/onboarding/provider-setup" });
+      } else {
+        router.replace("/onboarding/get-started");
+      }
     } catch (error) {
       console.error("Unexpected signup error:", error);
-
       Alert.alert("Signup failed", "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -146,31 +155,28 @@ export default function SignupScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
 
         <View style={styles.header}>
           <Text style={styles.logo}>CareFlow</Text>
-
           <Text style={styles.title}>Create your account</Text>
-
           <Text style={styles.subtitle}>
             Start managing your healthcare journey with CareFlow.
           </Text>
         </View>
 
         {/* Form */}
-
         <View style={styles.form}>
           {/* Name */}
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full name</Text>
-
             <TextInput
               style={styles.input}
               placeholder="Enter your full name"
@@ -184,10 +190,8 @@ export default function SignupScreen() {
           </View>
 
           {/* Email */}
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
-
             <TextInput
               style={styles.input}
               placeholder="Enter your email"
@@ -201,11 +205,25 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Password */}
+          {/* Phone */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your phone number"
+              placeholderTextColor="#94A3B8"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
 
+          {/* Password */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
-
             <TextInput
               style={styles.input}
               placeholder="Create a password"
@@ -219,10 +237,8 @@ export default function SignupScreen() {
           </View>
 
           {/* Confirm Password */}
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm password</Text>
-
             <TextInput
               style={styles.input}
               placeholder="Enter your password again"
@@ -235,12 +251,36 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Signup Button */}
+          {/* Provider Checkbox UI */}
+          <Pressable
+            style={styles.checkboxContainer}
+            onPress={() => setIsProvider(!isProvider)}
+            disabled={loading}
+          >
+            <View
+              style={[styles.checkbox, isProvider && styles.checkboxChecked]}
+            >
+              {isProvider && (
+                <Ionicons name="checkmark" size={16} color="white" />
+              )}
+            </View>
+            <View style={styles.checkboxTextContainer}>
+              <Text style={styles.checkboxLabel}>
+                I am a Healthcare Provider
+              </Text>
+              <Text style={styles.checkboxSubtext}>
+                Select this if you are registering as a doctor, clinic, or
+                hospital.
+              </Text>
+            </View>
+          </Pressable>
 
+          {/* Signup Button */}
           <Pressable
             style={[styles.signupButton, loading && styles.disabledButton]}
             onPress={handleSignup}
-            disabled={loading}>
+            disabled={loading}
+          >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
@@ -249,20 +289,18 @@ export default function SignupScreen() {
           </Pressable>
 
           {/* Login */}
-
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Already have an account?</Text>
-
             <Pressable
               onPress={() => router.replace("/login")}
-              disabled={loading}>
+              disabled={loading}
+            >
               <Text style={styles.loginLink}>Log in</Text>
             </Pressable>
           </View>
         </View>
 
         {/* Privacy */}
-
         <Text style={styles.privacyText}>
           By creating an account, you agree to use CareFlow for healthcare
           navigation and coordination. CareFlow does not provide medical
@@ -380,5 +418,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: 32,
+  },
+
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 4,
+    gap: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  checkboxChecked: { backgroundColor: "#2563EB", borderColor: "#2563EB" },
+  checkboxTextContainer: { flex: 1 },
+  checkboxLabel: { fontSize: 15, fontWeight: "600", color: "#0F172A" },
+  checkboxSubtext: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 2,
+    lineHeight: 18,
   },
 });

@@ -15,5 +15,5 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   },
 });
 
-console.log("Supabase URL:", supabaseUrl);
-console.log("Supabase key loaded:", Boolean(supabasePublishableKey));
+// console.log("Supabase URL:", supabaseUrl);
+// console.log("Supabase key loaded:", Boolean(supabasePublishableKey));
