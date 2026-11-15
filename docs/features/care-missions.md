@@ -1,80 +1,42 @@
-# Care Missions
+# Care missions and tasks
 
-## Purpose
+## User workflow
 
-A care mission represents a patient's healthcare objective and coordinates the steps needed to complete it.
+The Care tab loads active missions and assigned tasks. A user can create a
+mission at `/mission/create`, open `/mission/[id]`, add/update tasks, inspect
+mission events, share the mission, and open a mission-scoped assistant chat.
 
-## Example
+## Implementation
 
-```text
-"I need to see a cardiologist."
+- [`missionEngine.ts`](../../services/missionEngine.ts) implements
+  `createMission`, `transitionMission`, `getMissionDetails`,
+  `getMissionEvents`, `getActiveMissionsForUser`, `addTaskToMission`, and
+  `updateTaskStatus`.
+- [`tasks.ts`](../../services/tasks.ts) assigns/unassigns tasks and records
+  mission events.
+- Screens use Supabase tables `care_missions`, `care_tasks`, and
+  `mission_events`, with provider and consent relationships documented in
+  [`DATABASE.md`](../../DATABASE.md).
+- The state machine is implemented in service code and allows the configured
+  lowercase lifecycle values; UI and mock data also contain older uppercase
+  values, so the mock model is not interchangeable.
 
-        |
-        v
-
-Care Mission
-"Cardiology consultation"
-
-        |
-        +--> Find provider
-        +--> Select provider
-        +--> Book appointment
-        +--> Attend consultation
-        +--> Follow-up
-```
-
-## Lifecycle
+## Data flow
 
 ```text
-CREATED
-  |
-  v
-CARE_IDENTIFIED
-  |
-  v
-PROVIDER_SELECTED
-  |
-  v
-APPOINTMENT_BOOKED
-  |
-  v
-CONSULTATION
-  |
-  v
-FOLLOW_UP
-  |
-  v
-COMPLETED
+Mission screen
+  -> missionEngine/tasks service
+  -> Supabase care_missions/care_tasks
+  -> mission_events audit rows
+  -> refreshed mission detail and task UI
 ```
 
-Applicable active missions can be cancelled.
+Mission-specific assistant context is set through
+`conversation_states.active_mission_id`. Care Circle sharing uses
+`consents.mission_id` where the deployed schema permits it.
 
-## Tasks
+## Status
 
-A mission can contain multiple tasks.
-
-Example:
-
-```text
-Mission: Cardiology consultation
-
-Tasks:
-- Find cardiologist
-- Compare providers
-- Book appointment
-- Upload previous reports
-- Attend appointment
-- Complete follow-up
-```
-
-## Ownership
-
-The patient owns the mission.
-
-A provider may access it when legitimately assigned.
-
-Admins have administrative access.
-
-## AI Integration
-
-The AI assistant can create/update missions only through validated application tools.
+**Implemented, with workflow inconsistencies.** Cancellation, completion,
+provider assignment, and notification behavior are not consistently complete.
+Error handling in several screens logs failures without a recovery message.

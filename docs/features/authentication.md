@@ -1,58 +1,34 @@
-# Authentication
+# Authentication and onboarding
 
-## Purpose
+## Implemented flow
 
-Provide secure patient/provider/admin authentication using Supabase Auth.
+`/auth` and `/login` call `AuthContext.signIn`, which calls
+`supabase.auth.signInWithPassword`. `/signup` calls `supabase.auth.signUp`.
+[`AuthProvider`](../../context/AuthContext.tsx) restores the persisted session
+with `getSession`, subscribes to `onAuthStateChange`, loads `profiles.role`,
+and exposes `user`, `session`, `role`, `location`, and loading state.
 
-## Current Flow
+After signup, the UI routes to either patient onboarding
+([`onboarding/get-started.tsx`](../../app/onboarding/get-started.tsx)) or
+provider setup ([`onboarding/provider-setup.tsx`](../../app/onboarding/provider-setup.tsx)).
+Patient onboarding writes `patient_health_profiles`; provider setup writes
+`providers`. Logout is implemented from the profile screen.
 
-```text
-Signup
-  -> Supabase Auth
-  -> auth.users
-  -> handle_new_user()
-  -> profiles(role = patient)
-  -> email verification
-  -> onboarding
-```
+## Authorization boundary
 
-## Login
+The tab layout hides patient/provider tabs based on the loaded role. This is
+navigation UX only; routes are not guarded and direct navigation is possible.
+Database RLS in the deployed schema must enforce access.
 
-Email/password login uses Supabase Auth.
+## Partial or incomplete
 
-The application should expose only authentication state through `AuthContext`, while authorization remains in RLS.
+- `/auth` and `/login` duplicate login implementations.
+- Email verification callback and password reset are not implemented.
+- Provider approval and trusted role assignment are not a complete workflow.
+- Signup can pass provider metadata; the client must not be trusted to grant a
+  privileged role.
+- Location denial/error falls back to fixed coordinates `(23.83, 91.28)`.
 
-## Signup
-
-Normal signup accepts:
-
-```text
-name
-email
-password
-```
-
-Role is not user-selectable.
-
-## Email Verification
-
-The app uses a deep-link callback such as:
-
-```text
-healthcareapp://auth/callback
-```
-
-The callback exchanges the Supabase authorization code for a session.
-
-## Onboarding
-
-After authentication, onboarding collects patient-specific information and stores it in `patient_health_profiles`.
-
-## Security Requirements
-
-- Never trust client-provided roles.
-- Never store passwords in application tables.
-- Never expose service-role keys.
-- Handle expired sessions.
-- Handle verification-required states.
-- Protect reset-password links.
+Configuration uses `EXPO_PUBLIC_SUPABASE_URL` and
+`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in
+[`services/supabase/client.ts`](../../services/supabase/client.ts).

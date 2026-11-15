@@ -1,67 +1,46 @@
-# Welcome to your Expo app 👋
+# CareFlow
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+CareFlow is an Expo/React Native healthcare-care coordination prototype. It
+combines Supabase authentication and workflow data with provider discovery,
+missions, appointments, caregiver sharing, a persistent care assistant, and a
+separate retrieval-augmented health-record assistant.
 
-## Get started
+## Current implementation
 
-1. Install dependencies
+- **Client:** Expo Router, React Native, and TypeScript under [`app/`](./app).
+- **Authentication:** Supabase Auth with persisted sessions in
+  [`context/AuthContext.tsx`](./context/AuthContext.tsx).
+- **Workflow data:** Client services read and write the deployed Supabase
+  tables documented in [`DATABASE.md`](./DATABASE.md).
+- **Care assistant:** Persisted conversations and Gemini-backed intent/tool
+  orchestration in [`services/chatOrchestrator.ts`](./services/chatOrchestrator.ts).
+- **Record assistant:** Authenticated RAG ingestion and retrieval through the
+  `careflow-rag` Edge Function; see [`docs/ai/rag-system.md`](./docs/ai/rag-system.md).
+- **External integrations:** USDA FoodData Central, Open Food Facts, CDC content,
+  OCR.Space, Gemini, and Supabase. See [`docs/backend/integrations.md`](./docs/backend/integrations.md).
 
-   ```bash
-   npm install
-   ```
+This is a prototype, not a medical device or a diagnostic service. Several
+authorization, storage, deployment, and workflow-hardening tasks remain
+incomplete; they are recorded in [`docs/maintenance/known-limitations.md`](./docs/maintenance/known-limitations.md).
 
-2. Start the app
+## Documentation
 
-   ```bash
-   npx expo start
-   ```
+- [Documentation index](./docs/README.md)
+- [Architecture overview](./docs/architecture/overview.md)
+- [Data flows](./docs/architecture/data-flow.md)
+- [Database reference](./DATABASE.md)
+- [Database security and RLS](./docs/database/security-and-rls.md)
+- [Development setup](./docs/setup/development.md)
+- [Deployment](./docs/setup/deployment.md)
+- [Known limitations](./docs/maintenance/known-limitations.md)
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Local development
 
 ```bash
-npm run reset-project
+npm install
+npm run start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-
-# CareFlow Documentation
-
-## Architecture
-- [Architecture](ARCHITECTURE.md)
-- [Database](DATABASE.md)
-- [Decisions](DECISION.md)
-
-## Features
-- [Authentication](docs/features/authentication.md)
-- [AI Assistant](docs/features/ai-assistant.md)
-- [Care Missions](docs/features/care-missions.md)
-- [Provider Matching](docs/features/provider-matching.md)
-- [Medical Documents](docs/features/documents.md)
-- [Caregivers & Consent](docs/features/caregivers-consent.md)
-- [Appointments](docs/features/appointments.md)
-- [Notifications](docs/features/notifications.md)
+The client expects `EXPO_PUBLIC_SUPABASE_URL` and
+`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Optional integrations use additional
+`EXPO_PUBLIC_*` variables described in the setup and integration documentation.

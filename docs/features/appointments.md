@@ -1,38 +1,30 @@
 # Appointments
 
-## Purpose
+## User workflow
 
-Coordinate scheduled interactions between patients and healthcare providers.
+Patients select a provider, choose an availability slot, and book from
+[`provider/[id].tsx`](../../app/provider/[id].tsx). The appointments screen
+lists patient appointments and supports cancellation. Providers use the
+Schedule tab to filter appointments, update statuses, and manage availability.
 
-## Relationships
+## Services and data
 
-Each appointment is associated with:
-- one patient
-- one provider
-- one care mission
-- one scheduled time
+[`appointmentModel.ts`](../../services/appointmentModel.ts) provides patient
+fetch/cancel/book operations, provider appointment queries, status updates, and
+dashboard counts. [`availabilityModel.ts`](../../services/availabilityModel.ts)
+performs availability CRUD. The deployed schema relates each appointment to
+`patient_id`, `provider_id`, and `mission_id`; see
+[`DATABASE.md`](../../DATABASE.md).
 
-## Status
+The normal booking path inserts status `requested`. The chat orchestrator can
+insert `scheduled`, while provider UI primarily handles `requested`,
+`approved`, `waitlisted`, and `revoked`. This is a known status mismatch.
 
-```text
-SCHEDULED
-CONFIRMED
-COMPLETED
-CANCELLED
-NO_SHOW
-```
+## Integrity and authorization
 
-## Integrity
+The live schema reference documents a patient/mission consistency trigger and
+RLS policies. The repository migration does not define those workflow objects,
+so a clean local database cannot reproduce them from source control.
 
-The appointment's patient must match the mission's patient.
-
-This is enforced using a database trigger.
-
-## Future Requirements
-
-- Provider availability validation
-- Overlap prevention
-- Rescheduling
-- Cancellation
-- Reminders
-- Provider confirmation
+Overlap prevention, complete rescheduling, reminder delivery, and automated
+provider confirmation are not implemented.

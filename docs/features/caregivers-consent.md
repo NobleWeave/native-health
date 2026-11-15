@@ -1,65 +1,26 @@
-# Caregivers & Consent
+# Caregivers and consent
 
-## Purpose
+## User workflow
 
-Allow patients to involve trusted caregivers while maintaining explicit control over healthcare data.
+Patients invite a caregiver at `/care-circle/invite`. Caregivers review
+pending invitations at `/care-circle/invitations` and can accept or decline.
+Mission screens can share a mission with a caregiver and revoke mission access.
 
-## Relationship
+[`careCircle.ts`](../../services/careCircle.ts) looks up caregiver profiles,
+creates/reads `caregivers` relationships, creates/reads `consents`, and loads
+shared missions/tasks. [`utils/permissions.ts`](../../utils/permissions.ts)
+rejects revoked or expired consent and checks permission flags.
 
-A caregiver relationship identifies who the caregiver is.
+## Data and authorization
 
-It does not automatically grant data access.
+The deployed schema relates caregivers and consents to patient profiles and,
+optionally, missions. `permissions`, `expires_at`, and `revoked_at` determine
+the intended access decision. Database RLS remains authoritative; the helper
+is not sufficient by itself.
 
-## Consent
+## Known inconsistencies
 
-Consent specifies:
-- caregiver
-- patient
-- optional mission
-- permissions
-- expiry
-- revocation
-
-Example:
-
-```json
-{
-  "view_documents": true,
-  "view_missions": true,
-  "view_appointments": false
-}
-```
-
-## Access Decision
-
-```text
-Caregiver request
-       |
-       v
-Active relationship?
-       |
-       v
-Active consent?
-       |
-       v
-Required permission?
-       |
-       v
-Mission allowed?
-       |
-       v
-Not expired/revoked?
-       |
-       v
-ALLOW
-```
-
-Any failed condition should deny access.
-
-## Revocation
-
-When consent is revoked, the caregiver should immediately lose access to resources protected by that consent.
-
-## Security
-
-A caregiver must never be able to grant themselves additional permissions.
+Permission names differ across mock data, mission sharing, and task assignment
+(`view_documents`, `view_appointment`, `view`, and `manage` are all present).
+The repository does not include end-to-end tests for revoked, expired, or
+cross-patient access.

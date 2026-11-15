@@ -1,47 +1,18 @@
 # Notifications
 
-## Purpose
+## Current status
 
-Provide users with timely updates about care workflows.
+The deployed schema documents a `notifications` table linked optionally to
+tasks, appointments, and missions. The current client does not implement a
+notification-center screen, notification queries, read-state updates, push
+delivery, or a scheduler.
 
-## Types
+Home includes a hard-coded medication reminder presentation; it is not loaded
+from `notifications`.
 
-- Task reminder
-- Appointment reminder
-- Appointment created
-- Appointment updated
-- Appointment cancelled
-- Mission update
-- Document processed
-- Consent request
-- Consent updated
-- System notification
+## Target behavior
 
-## Lifecycle
-
-```text
-PENDING
-   |
-   v
-SENT
-
-or
-
-PENDING
-   |
-   v
-FAILED / CANCELLED
-```
-
-## Data Model
-
-Notifications can reference:
-- task
-- appointment
-- mission
-
-They belong to a user.
-
-## Future Push Notifications
-
-The database notification record should remain the source of application state even if push notifications are later added.
+Notifications should be generated from mission, task, appointment, consent, or
+document events and remain the application record of notification state before
+any push provider is added. No such end-to-end worker is present in this
+repository.
