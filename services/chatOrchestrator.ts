@@ -41,8 +41,11 @@ Valid Intents:
 - EVALUATE_FOOD: User asks if a scanned/specific food is healthy for them.
 
 Critical Rules:
+- If a user mentions any speciality (e.g., cardiology/cardiologist, orthopaedics), capture it in "speciality" (e.g. cardiology, orthopaedics).
 - If a user mentions an insurance scheme (e.g., PM-JAY, CGHS), capture it in "scheme".
-- If a user asks to create a mission AND suggest tasks, include BOTH "CREATE_MISSION" and "ADD_TASK" in the intents array. Use the context to generate logical task steps (e.g., "Apply ice to knee", "Book orthopaedic appointment") and output them in the "taskTitles" array.`;
+- If a user mentions any cost (e.g., within/under/below 1000), capture it in "maxCost".
+- If a user asks to create a mission AND suggest tasks, include BOTH "CREATE_MISSION" and "ADD_TASK" in the intents array. Use the context to generate logical task steps (e.g., "Apply ice to knee", "Book orthopaedic appointment") and output them in the "taskTitles" array.
+- If a user asks to delegate/assign any task and gives a name then capture it in "caregiverName"`;
 
 const MEDICAL_PROMPT = `You are a healthcare educational assistant.
 When a user mentions pain, discomfort, or a minor symptom (like knee pain), ALWAYS start by offering quick first-aid tips, safe home remedies, or observational trials. 
@@ -99,10 +102,12 @@ export async function processChatMessage(
     context: conversationContext,
     currentState: currentState.care_context
   }), "json_object");
+  console.log("Router response:", routerResponseJson);
 
   // D. Parse & Validate Intents
   const parsed = IntentSchema.parse(JSON.parse(routerResponseJson));
   const { intents, entities = {} } = parsed;
+  console.log("Parsed Intents:", intents, "Entities:", entities);
 
   // E. Merge State Context
   let mergedContext = {...currentState.care_context, ...entities};
@@ -201,6 +206,7 @@ export async function processChatMessage(
       scheme: mergedContext.scheme || "", // Context injects the scheme here
       location: userLocation
     });
+    console.log("Found Providers:", providers);
     actionResults.providers = providers;
     if (providers.length > 0) {
       await supabase.from("conversation_states").update({ selected_provider_id: providers[0].id }).eq("conversation_id", conversationId);
@@ -214,14 +220,21 @@ export async function processChatMessage(
       // 1. Fetch available slots for the provider
       const slots = await fetchProviderAvailability(providerId);
       const availableSlots = slots.filter((s: any) => s.is_available);
+      // console.log(slots, availableSlots);
 
       if (entities.appointmentTime && currentMissionId) {
         // 2. User selected a specific time, confirm booking
         executedTools.push("confirmBooking");
         
         // Match user's requested time with database slots
-        const targetTime = new Date(entities.appointmentTime).getTime();
-        const matchedSlot = availableSlots.find((s: any) => new Date(s.start_time).getTime() === targetTime);
+        const targetTimeStr = entities.appointmentTime.substring(0, 19); 
+
+        const matchedSlot = availableSlots.find((s: any) => {
+          // Extract the same 19 chars from the Supabase string 
+          // (ignores the trailing +00:00 or .000Z)
+          const dbTimeStr = s.start_time.substring(0, 19);
+          return dbTimeStr === targetTimeStr;
+        });
 
         if (matchedSlot) {
           // Book the appointment
@@ -355,7 +368,7 @@ async function callLLM(systemPrompt: string, userPrompt: string, format: "text" 
       "Authorization": `Bearer ${process.env.EXPO_PUBLIC_GEMINI_API_KEY}` 
     },
     body: JSON.stringify({
-      model: "gemini-2.5-flash-lite", 
+      model: "gemini-3.1-flash-lite", 
       response_format: { type: format },
       messages: [
         { role: "system", content: systemPrompt },

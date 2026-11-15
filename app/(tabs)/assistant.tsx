@@ -12,11 +12,14 @@ import {
   fetchConversationMessages, 
   createNewConversation,
   renameConversation,
-  deleteConversation
+  deleteConversation,
+  setActiveMissionForConversation
 } from "../../services/chatApi";
+import { useLocalSearchParams, router } from "expo-router";
 
 export default function AssistantScreen() {
   const { user, location } = useAuth();
+  const { missionId } = useLocalSearchParams<{ missionId?: string }>();
   
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
@@ -43,11 +46,43 @@ export default function AssistantScreen() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadHistory();
-      handleStartNewChat(); // Default to a blank chat on mount
+    async function initChat() {
+      if (!user) return;
+      await loadHistory();
+
+      if (missionId) {
+        try {
+          // A. Create a dedicated chat for this mission
+          const newConv = await createNewConversation(user.id, "Discussing Care Mission");
+          
+          // B. Inject the mission into the database context instantly
+          await setActiveMissionForConversation(newConv.id, missionId);
+          setConversationId(newConv.id);
+          
+          // C. Set a context-aware greeting
+          setMessages([
+            { 
+              role: "assistant", 
+              content: "I have loaded this care mission into our context. What would you like to do? I can help you add tasks, book appointments, or delegate items to your care circle." 
+            }
+          ]);
+          
+          await loadHistory(); // Refresh sidebar title
+          
+          // D. Clear the param so hitting "New Chat" later works normally
+          router.setParams({ missionId: undefined });
+        } catch (error) {
+          console.error("Failed to load mission context", error);
+          handleStartNewChat();
+        }
+      } else if (!conversationId) {
+        // Only start a blank chat if we aren't currently viewing one
+        handleStartNewChat();
+      }
     }
-  }, [user]);
+    
+    initChat();
+  }, [user, missionId]);
 
   const loadHistory = async () => {
     if (!user) return;

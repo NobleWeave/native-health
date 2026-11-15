@@ -90,3 +90,13 @@ export async function deleteConversation(conversationId: string) {
   if (convError) throw convError;
   return true;
 }
+
+export async function setActiveMissionForConversation(conversationId: string, missionId: string) {
+  const { error } = await supabase
+    .from("conversation_states")
+    .update({ active_mission_id: missionId })
+    .eq("conversation_id", conversationId);
+  
+  if (error) throw error;
+  return true;
+}

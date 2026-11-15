@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  console.log("AuthContext user:", user);
+  // console.log("AuthContext user:", user);
   console.log("User role:", role);
 
   return (

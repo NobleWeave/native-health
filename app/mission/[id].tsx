@@ -188,13 +188,24 @@ export default function MissionDetailsScreen() {
               <Text style={styles.title}>{mission?.title}</Text>
             </View>
             
-            {/* Share Button (Only Patient) */}
-            {isPatient && (
-              <Pressable style={styles.shareBtn} onPress={() => setShowSharePanel(!showSharePanel)}>
-                <Ionicons name="share-social-outline" size={18} color="#285C3B" />
-                <Text style={styles.shareBtnText}>Share</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {/* NEW: Chat Shortcut Button */}
+              <Pressable 
+                style={styles.shareBtn} 
+                onPress={() => router.push(`/(tabs)/assistant?missionId=${mission?.id}`)}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#285C3B" />
+                <Text style={styles.shareBtnText}>Chat</Text>
               </Pressable>
-            )}
+
+              {/* Share Button (Only Patient) */}
+              {isPatient && (
+                <Pressable style={styles.shareBtn} onPress={() => setShowSharePanel(!showSharePanel)}>
+                  <Ionicons name="share-social-outline" size={18} color="#285C3B" />
+                  <Text style={styles.shareBtnText}>Share</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
           <Text style={styles.sub}>{mission?.description}</Text>
           
