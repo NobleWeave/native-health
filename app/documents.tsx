@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert, ScrollView, LogBox } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from 'expo-document-picker';
+import { ingestOcrDocument } from '../services/rag';
 
 // Ignore the specific React Native blob warning so it stops popping up
 LogBox.ignoreLogs(["Response.blob() is using React Native"]);
@@ -54,14 +55,29 @@ export default function DocumentsScreen() {
 
       if (data && data.ParsedResults && data.ParsedResults.length > 0) {
         const text = data.ParsedResults[0].ParsedText;
+        if (!text?.trim()) {
+          Alert.alert('No Text Found', 'Could not detect any text in this image.');
+          return;
+        }
         setExtractedText(text);
+        const saved = await ingestOcrDocument({
+          extractedText: text,
+          fileName: file.name || 'medical-document',
+        });
+        Alert.alert(
+          'Document Saved',
+          `Extracted text was added to your searchable patient records (${saved.chunkCount} chunks).`,
+        );
       } else {
         Alert.alert('No Text Found', 'Could not detect any text in this image.');
       }
 
     } catch (error) {
       console.error('Error during OCR processing:', error);
-      Alert.alert('Scan Failed', 'An error occurred while reading the document.');
+      Alert.alert(
+        'Scan Failed',
+        error instanceof Error ? error.message : 'An error occurred while reading or saving the document.',
+      );
     } finally {
       setIsProcessing(false);
     }
