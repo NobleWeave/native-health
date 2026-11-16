@@ -40,7 +40,7 @@ export default function DocumentsScreen() {
       const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
         headers: {
-          'apikey': process.env.EXPO_PUBLIC_OCR_API_KEY, 
+          'apikey': process.env.EXPO_PUBLIC_OCR_API_KEY!, 
         },
         body: formData,
       });
