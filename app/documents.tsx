@@ -138,8 +138,7 @@ export default function DocumentsScreen() {
           "Automatically generated from document scan."
         );
         targetMissionId = newMission.id;
-      } else {
-        // Grab the most recent active mission
+      } else {      
         targetMissionId = activeMissions[0].id; 
       }
       
