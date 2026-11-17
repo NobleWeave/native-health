@@ -5,7 +5,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useAuth } from '../context/AuthContext'; 
 import { addTaskToMission, getActiveMissionsForUser, createMission } from '../services/missionEngine'; 
 
-// Ignore the specific React Native blob warning so it stops popping up
 LogBox.ignoreLogs(["Response.blob() is using React Native"]);
 
 export default function DocumentsScreen() {
@@ -117,9 +116,8 @@ export default function DocumentsScreen() {
         return;
       }
       
-      const rawResponseText = data.candidates[0].content.parts[0].text;
+      const rawResponseText = data.candidates[0].content.parts[0].text;      
       
-      // Find the first '[' and last ']' to extract purely the JSON array
       const firstBracket = rawResponseText.indexOf('[');
       const lastBracket = rawResponseText.lastIndexOf(']');
       
@@ -129,13 +127,11 @@ export default function DocumentsScreen() {
       
       const jsonString = rawResponseText.substring(firstBracket, lastBracket + 1);
       const tasksArray: string[] = JSON.parse(jsonString);
-
-      // --- DYNAMIC MISSION ID FETCHING OR CREATION ---
+      
       let targetMissionId;
       const activeMissions = await getActiveMissionsForUser(user.id);
       
-      if (!activeMissions || activeMissions.length === 0) {
-        // Auto-create a default mission since none exists
+      if (!activeMissions || activeMissions.length === 0) {      
         const newMission = await createMission(
           user.id, 
           "Prescription Follow-up", 
@@ -146,8 +142,7 @@ export default function DocumentsScreen() {
         // Grab the most recent active mission
         targetMissionId = activeMissions[0].id; 
       }
-
-      // Loop through and save to Supabase
+      
       for (const taskTitle of tasksArray) {
         await addTaskToMission(
           targetMissionId, 
