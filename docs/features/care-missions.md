@@ -35,6 +35,11 @@ Mission-specific assistant context is set through
 `conversation_states.active_mission_id`. Care Circle sharing uses
 `consents.mission_id` where the deployed schema permits it.
 
+The Documents screen also creates mission tasks from OCR text: Gemini generates
+task titles, the screen selects the most recently created active mission (or
+creates a "Prescription Follow-up" mission), and inserts the titles as pending
+tasks.
+
 ## Status
 
 **Implemented, with workflow inconsistencies.** Cancellation, completion,

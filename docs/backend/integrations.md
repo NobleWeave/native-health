@@ -20,13 +20,13 @@ is optional and defaults to `gemini-3.1-flash-lite`.
 
 | Integration | Client | Configuration | Behavior |
 | --- | --- | --- | --- |
-| Gemini chat | `chatOrchestrator.ts` | `EXPO_PUBLIC_GEMINI_API_KEY` | Intent routing, actions, and responses |
+| Gemini chat | `chatOrchestrator.ts`, `documents.tsx` | `EXPO_PUBLIC_GEMINI_API_KEY` | Intent routing, chat responses, and OCR text-to-task generation |
 | Gemini RAG | `careflow-rag` | Edge Function secrets | Embeddings and grounded answers |
-| OCR.Space | `documents.tsx` | `EXPO_PUBLIC_OCR_API_KEY` | Image-to-text OCR |
+| OCR.Space | `documents.tsx` | `EXPO_PUBLIC_OCR_API_KEY` | Image-to-text OCR before mission-task generation |
 | USDA FoodData Central | `nutrition.ts` | `EXPO_PUBLIC_USDA_API_KEY` | Food search/details |
 | Open Food Facts | `barcodeNutrition.ts` | None | Barcode product lookup |
 | CDC media feed | `cdc.ts` | None | Public health article listing |
 
-Expo public variables are bundled into the app. The Gemini chat, OCR, and USDA
-keys must be treated as exposed client credentials; they are not suitable for
-private server secrets.
+Expo public variables are bundled into the app. The main and document-task
+Gemini calls, OCR, and USDA keys must be treated as exposed client credentials;
+they are not suitable for private server secrets.

@@ -61,9 +61,11 @@ and should not be treated as the live source of truth.
 The main assistant persists conversations and messages, classifies requests
 with a Zod schema, and executes application actions in
 [`services/chatOrchestrator.ts`](./services/chatOrchestrator.ts). The record
-assistant is separate: it sends daily-log/document ingestion and questions to
-the authenticated [`careflow-rag`](./supabase/functions/careflow-rag/index.ts)
-function. Neither path should be described as clinical diagnosis.
+assistant is separate: it sends daily-log ingestion and questions to the
+authenticated [`careflow-rag`](./supabase/functions/careflow-rag/index.ts)
+function. The Documents screen separately sends OCR text to Gemini and creates
+mission tasks through Supabase. Neither path should be described as clinical
+diagnosis.
 
 ## Target-state decisions
 

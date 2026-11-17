@@ -6,7 +6,8 @@
   workflow schema in [`DATABASE.md`](../../DATABASE.md) is a live/exported
   reference.
 - Route hiding is not route authorization.
-- Main-chat Gemini, OCR.Space, and USDA credentials use Expo public variables.
+- Main-chat and document-task Gemini calls, OCR.Space, and USDA credentials
+  use Expo public variables.
 - No Storage bucket/policy or original medical-file upload is implemented.
 - No comprehensive cross-patient, provider, caregiver, or admin RLS tests exist.
 
@@ -27,8 +28,8 @@
 
 - Notifications are schema-only; there is no notification center, scheduler,
   push provider, or read-state UI.
-- Document processing is OCR-to-RAG text indexing, not a complete document
-  library or Storage-backed processing pipeline.
+- Document processing currently scans images and generates mission tasks; it
+  does not persist document metadata/files or provide a complete library.
 - Email verification callback, password reset, provider approval, admin UI,
   offline behavior, and complete appointment rescheduling are absent.
 - `data/mockDb.ts` is unused demo data, not a fallback datastore.

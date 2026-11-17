@@ -7,8 +7,8 @@ claim that unchecked items are already available.
 
 - Add reproducible migrations for the workflow schema, functions, triggers,
   RLS, and Storage policies documented in [`DATABASE.md`](./DATABASE.md).
-- Move main-chat Gemini calls and all private provider credentials behind a
-  trusted server boundary.
+- Move main-chat and document-task Gemini calls, and all private provider
+  credentials, behind a trusted server boundary.
 - Add route guards, trusted provider/admin approval, and role self-escalation
   protection.
 - Add patient-to-patient, provider, caregiver, and admin authorization tests.
@@ -24,6 +24,8 @@ claim that unchecked items are already available.
 ## Records and operations
 
 - Add document metadata persistence and Supabase Storage upload/policies.
+- Move document OCR and Gemini task-generation credentials/processing to a
+  trusted server boundary.
 - Add email verification, password reset, and deep-link callback screens.
 - Add complete appointment rescheduling/overlap handling.
 - Add offline, empty, accessibility, and production smoke-test coverage.

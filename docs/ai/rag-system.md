@@ -1,14 +1,16 @@
 # RAG system
 
 The record assistant at [`/ragassistant`](../../app/ragassistant.tsx) answers
-questions using authenticated daily-log and OCR text records. It is separate
-from the main Care Assistant.
+questions using authenticated indexed records. It is separate from the main
+Care Assistant. The Edge Function supports document ingestion, but the current
+Documents screen sends OCR text to Gemini for task generation instead of
+calling `ingest_document`.
 
 ## End-to-end flow
 
 ```mermaid
 flowchart TD
-    screen[Daily log or OCR screen] --> client[services/rag.ts]
+    screen[Daily log or document ingestion client] --> client[services/rag.ts]
     client --> edge[careflow-rag Edge Function]
     edge --> auth[auth.getUser]
     edge --> embed[Gemini gemini-embedding-001]

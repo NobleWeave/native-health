@@ -29,10 +29,12 @@ the intended product direction; the current implementation is summarized in
   The remaining schema documented in [`DATABASE.md`](./DATABASE.md) must be
   captured in migrations before the project is reproducible from a clean
   checkout.
-- The current document flow sends image bytes to OCR.Space and indexes extracted
-  text through RAG; it does not upload the original file to Supabase Storage.
-- The mobile client currently reads `EXPO_PUBLIC_GEMINI_API_KEY` for the main
-  assistant, which conflicts with the intended server-only secret boundary.
+- The current document flow sends images to OCR.Space and extracted text to a
+  mobile-bundled Gemini call, then creates mission tasks in Supabase. It does
+  not upload the original file or persist a `documents` row.
+- The mobile client currently reads `EXPO_PUBLIC_GEMINI_API_KEY` for both the
+  main assistant and document-task generation, which conflicts with the
+  intended server-only secret boundary.
 
 ## Superseded descriptions
 

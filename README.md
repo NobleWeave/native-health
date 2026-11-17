@@ -16,6 +16,8 @@ separate retrieval-augmented health-record assistant.
   orchestration in [`services/chatOrchestrator.ts`](./services/chatOrchestrator.ts).
 - **Record assistant:** Authenticated RAG ingestion and retrieval through the
   `careflow-rag` Edge Function; see [`docs/ai/rag-system.md`](./docs/ai/rag-system.md).
+- **Document flow:** OCR text extraction plus Gemini-generated mission tasks;
+  see [`docs/features/documents.md`](./docs/features/documents.md).
 - **External integrations:** USDA FoodData Central, Open Food Facts, CDC content,
   OCR.Space, Gemini, and Supabase. See [`docs/backend/integrations.md`](./docs/backend/integrations.md).
 

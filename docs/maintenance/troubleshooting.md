@@ -18,6 +18,9 @@
 - No matching records: verify the source belongs to the signed-in user and the
   question has relevant indexed text.
 - OCR errors: check the OCR key, image type, provider response, and quota.
+- Mission-task generation errors: verify `EXPO_PUBLIC_GEMINI_API_KEY`, check
+  that Gemini returned a JSON array of strings, and confirm the connected
+  Supabase project permits mission/task inserts and mission-event writes.
 
 ## Workflow
 
