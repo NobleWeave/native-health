@@ -14,17 +14,22 @@ The function creates category-oriented text, embeds each chunk with
 ## OCR document flow
 
 [`documents.tsx`](../../app/documents.tsx) accepts an image from
-`expo-document-picker`, sends it to OCR.Space using `EXPO_PUBLIC_OCR_API_KEY`,
-shows the extracted text, and sends that text to `ingest_document`. The RAG
-function stores a `medical_document` source and vector chunks.
+`expo-document-picker`, sends it to OCR.Space using
+`EXPO_PUBLIC_OCR_API_KEY`, and shows the extracted text. After extraction, the
+user can ask Gemini to produce a JSON array of task strings. The screen finds
+the user's most recently created active mission and creates each string as a
+pending `care_tasks` row through `missionEngine.addTaskToMission`. If no active
+mission exists, it first creates a "Prescription Follow-up" mission.
 
-The original image is not uploaded to Supabase Storage, and the screen does not
-insert a row into the deployed `documents` table. Consequently, this is text
-indexing, not a complete medical-document management flow.
+This flow does not send extracted text to `ingest_document`, insert a row into
+the deployed `documents` table, or upload the original image to Supabase
+Storage. It creates mission tasks; it is not a complete document library or an
+OCR-to-RAG ingestion pipeline.
 
 ## Limits and safety
 
-The Edge Function rejects source text over 60,000 characters or more than 40
-chunks. OCR and RAG errors surface as alerts. Extracted text is not clinically
-verified; the product must not infer diagnosis or medication changes from it.
-See [RAG system](../ai/rag-system.md) for retrieval behavior.
+The RAG Edge Function rejects source text over 60,000 characters or more than
+40 chunks. OCR and task-generation errors surface as alerts. Gemini-generated
+task titles are not clinically verified and must not be presented as diagnosis
+or medication advice. The OCR and task-generation API keys are exposed in the
+mobile client. See [RAG system](../ai/rag-system.md) for retrieval behavior.

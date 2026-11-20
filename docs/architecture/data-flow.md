@@ -56,13 +56,21 @@ The client contains consent checks, but permission keys and sharing payloads are
 not consistent across all paths. Database policy behavior is supplied by the
 deployed schema documented in [`DATABASE.md`](../../DATABASE.md).
 
+## Document OCR and task creation
+
+The Documents screen accepts an image, calls OCR.Space, and displays extracted
+text. At the user's request it sends the text to Gemini from the Expo client
+using `EXPO_PUBLIC_GEMINI_API_KEY`, parses a JSON task array, selects the most
+recent active mission (or creates a default prescription mission), and inserts
+each task through `missionEngine.addTaskToMission`.
+
+The screen does not persist OCR text through RAG, create a `documents` metadata
+row, or store the original image in Supabase Storage.
+
 ## RAG ingestion and retrieval
 
-Daily-log or OCR screens call [`services/rag.ts`](../../services/rag.ts), which
+The Daily Log screen calls [`services/rag.ts`](../../services/rag.ts), which
 invokes the authenticated Edge Function. The function validates the bearer
 session, creates 768-dimensional Gemini embeddings, and calls
 `replace_patient_rag_source`. Questions use `match_patient_rag_chunks`, filter
 similarity below `0.25`, and send relevant chunks to Gemini for a cited answer.
-
-Original OCR files are not stored in Supabase Storage; only extracted text is
-indexed.

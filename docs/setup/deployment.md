@@ -25,7 +25,8 @@ them.
 
 ## Production blockers
 
-Before handling real health data, move main-chat Gemini calls behind a trusted
-server boundary, provision and audit Storage/RLS policies, add route and role
-guards, verify provider approval, add cross-patient authorization tests, and
-review the OCR/Gemini provider terms and healthcare privacy requirements.
+Before handling real health data, move main-chat and document-task Gemini calls
+behind a trusted server boundary, provision and audit Storage/RLS policies, add
+route and role guards, verify provider approval, add cross-patient
+authorization tests, and review the OCR/Gemini provider terms and healthcare
+privacy requirements.
