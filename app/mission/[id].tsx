@@ -10,6 +10,7 @@ import { assignTask, unassignTask } from "../../services/tasks";
 import { canAccess } from "../../utils/permissions";
 import { MissionTask } from "../../components/MissionTask";
 import { MissionTimeline, MissionEvent } from "../../components/MissionTimeline";
+import { TaskReminderModal } from "@/components/TaskReminderModal";
 
 const STATE_LABELS: Record<MissionState, string> = {
   created: "Mission Created", care_identified: "Care Identified", provider_selected: "Provider Selected",
@@ -33,6 +34,7 @@ export default function MissionDetailsScreen() {
   // UI States
   const [showSharePanel, setShowSharePanel] = useState(false);
   const [assigningTask, setAssigningTask] = useState<{id: string, title: string, assignee: string | null} | null>(null);
+  const [reminderTask, setReminderTask] = useState<{ id: string; title: string } | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
 
@@ -349,6 +351,7 @@ export default function MissionDetailsScreen() {
                     done={task.status === "completed"}
                     assigneeName={assigneeName}
                     onPress={canManage ? () => handleToggleTask(task.id, task.status) : undefined}
+                    onSetReminder={canManage ? () => setReminderTask({ id: task.id, title: task.title }) : undefined}
                     onAssign={canManage ? () => setAssigningTask({id: task.id, title: task.title, assignee: task.assigned_to}) : undefined}
                   />
                 )
@@ -361,6 +364,12 @@ export default function MissionDetailsScreen() {
         <MissionTimeline events={events} />
 
       </ScrollView>
+      <TaskReminderModal
+        visible={Boolean(reminderTask)}
+        task={reminderTask}
+        missionTitle={mission?.title}
+        onClose={() => setReminderTask(null)}
+      />
     </SafeAreaView>
   );
 }
