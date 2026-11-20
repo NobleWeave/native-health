@@ -1,7 +1,7 @@
-
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -18,7 +18,9 @@ export default function BarcodeScannerScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#285C3B" />
-        <Text>Checking camera permission...</Text>
+        <Text style={styles.permissionSubtitle}>
+          Checking camera permission...
+        </Text>
       </View>
     );
   }
@@ -26,15 +28,23 @@ export default function BarcodeScannerScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Camera permission required</Text>
-        <Text style={styles.subtitle}>
+        <Text style={styles.permissionTitle}>Camera permission required</Text>
+        <Text style={styles.permissionSubtitle}>
           Allow camera access to scan packaged food barcodes.
         </Text>
         <Pressable
           style={styles.button}
-          onPress={() => void requestPermission()}
+          onPress={() => {
+            if (permission.canAskAgain) {
+              void requestPermission();
+            } else {
+              void Linking.openSettings();
+            }
+          }}
         >
-          <Text style={styles.buttonText}>Allow camera</Text>
+          <Text style={styles.buttonText}>
+            {permission.canAskAgain ? "Allow camera" : "Open Settings"}
+          </Text>
         </Pressable>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.backText}>Go back</Text>
@@ -139,4 +149,16 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "white", fontWeight: "700" },
   backText: { color: "#285C3B", fontWeight: "700" },
+  permissionTitle: {
+    color: "#17201B",
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  permissionSubtitle: {
+    color: "#52615A",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });

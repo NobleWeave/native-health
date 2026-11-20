@@ -51,37 +51,56 @@ export async function findAndRankCare(constraints: SearchConstraints): Promise<R
     const reasons: string[] = [];
     const meta: string[] = [`${Number(provider.distance_km).toFixed(1)} km`, `₹${provider.consultation_fee}`];
 
-    // Medical Fit (30%) - Pre-filtered by SQL, but we grant the weight if it matches perfectly
-    if (provider.speciality?.toLowerCase() === constraints.speciality.toLowerCase()) {
+    const targetSpeciality = constraints.speciality.trim().toLowerCase();
+    const targetScheme = constraints.scheme.trim().toLowerCase();
+    const targetLanguage = constraints.language.trim().toLowerCase();
+
+    // Medical Fit (30%)
+    if (
+      targetSpeciality &&
+      provider.speciality?.trim().toLowerCase() === targetSpeciality
+    ) {
       score += WEIGHTS.medicalFit;
     }
 
     // Affordability (20%)
     if (provider.consultation_fee <= constraints.maxCost) {
       score += WEIGHTS.affordability;
-      reasons.push(`Within budget`);
-    } else {
-      // Partial score for being slightly over budget
+      reasons.push("Within budget");
+    } else if (provider.consultation_fee > 0) {
       const ratio = constraints.maxCost / provider.consultation_fee;
       score += WEIGHTS.affordability * Math.max(0, ratio);
     }
 
     // Distance (15%) - Inverse scaling (closer is better)
-    const distanceScore = Math.max(0, 1 - (provider.distance_km / constraints.maxDistance));
+    const distanceScore =
+      constraints.maxDistance > 0
+        ? Math.max(0, 1 - provider.distance_km / constraints.maxDistance)
+        : 0;
     score += WEIGHTS.distance * distanceScore;
     if (provider.distance_km <= 5) reasons.push("Very close to you");
 
-    // Insurance (10%)
-    if (constraints.scheme && provider.insurance_schemes?.includes(constraints.scheme)) {
+    // Insurance (10%) - Case-insensitive match
+    if (
+      targetScheme &&
+      provider.insurance_schemes?.some(
+        (s: string) => s.trim().toLowerCase() === targetScheme
+      )
+    ) {
       score += WEIGHTS.insurance;
-      meta.push(constraints.scheme);
-      reasons.push(`Accepts ${constraints.scheme}`);
+      meta.push(constraints.scheme.trim());
+      reasons.push(`Accepts ${constraints.scheme.trim()}`);
     }
 
-    // Language (5%)
-    if (constraints.language && provider.languages?.includes(constraints.language)) {
+    // Language (5%) - Case-insensitive match
+    if (
+      targetLanguage &&
+      provider.languages?.some(
+        (l: string) => l.trim().toLowerCase() === targetLanguage
+      )
+    ) {
       score += WEIGHTS.language;
-      reasons.push(`${constraints.language} speaking`);
+      reasons.push(`${constraints.language.trim()} speaking`);
     }
 
     // Accessibility (5%) - Assume base score if features exist

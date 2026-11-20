@@ -3,14 +3,19 @@ import { StyleSheet, Text, View, Pressable } from "react-native";
 export function CareCard({
   title,
   progress,
+  progressRatio = 0,
   next,
   onPress,
 }: {
   title: string;
   progress: string;
+  progressRatio?: number;
   next: string;
   onPress?: () => void;
 }) {
+  const clampedPercent = Math.round(
+    Math.min(1, Math.max(0, progressRatio)) * 100
+  );
   return (
     <Pressable 
       style={({ pressed }) => [styles.card, pressed && styles.pressed]} 
@@ -19,7 +24,7 @@ export function CareCard({
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.progress}>{progress}</Text>
       <View style={styles.bar}>
-        <View style={styles.fill} />
+        <View style={[styles.fill, { width: `${clampedPercent}%` }]} />
       </View>
       <Text style={styles.next}>{next}</Text>
     </Pressable>
@@ -48,7 +53,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   fill: {
-    width: "60%",
     height: 7,
     backgroundColor: "#4C8059",
     borderRadius: 5,

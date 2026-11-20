@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View, ScrollView, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,13 +38,13 @@ export default function CareScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user) {
-      // Data loading synchronizes the screen with Supabase after auth changes.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void loadDashboard();
-    }
-  }, [loadDashboard, user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        void loadDashboard();
+      }
+    }, [loadDashboard, user])
+  );
 
   const handleRemoveCaregiver = (caregiverId: string, name: string) => {
     Alert.alert(

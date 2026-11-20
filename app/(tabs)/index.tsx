@@ -1,5 +1,5 @@
-import { Link, router } from "expo-router";
-import { useEffect, useState } from "react";
+import { Link, router, useFocusEffect } from "expo-router";
+import { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -33,27 +33,36 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
   const [activeMission, setActiveMission] = useState<any | null>(null);
   const [loadingMission, setLoadingMission] = useState(true);
 
-  useEffect(() => {
-    if (userId) {
-      getActiveMissionsForUser(userId)
-      .then((data) => {
-        if (data && data.length > 0) {
-          const trulyActive = data.find((m: any) => {
-            const tasks = m.care_tasks || [];
-            if (tasks.length === 0) return true; // Keep if no tasks yet
-            const isAllDone = tasks.every((t: any) => t.status === "completed");
-            return !isAllDone;
-          });
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      let cancelled = false;
 
-          setActiveMission(trulyActive || null);
-        } else {
-          setActiveMission(null);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoadingMission(false));
-    }
-  }, [userId]);
+      getActiveMissionsForUser(userId)
+        .then((data) => {
+          if (cancelled) return;
+          if (data && data.length > 0) {
+            const trulyActive = data.find((m: any) => {
+              const tasks = m.care_tasks || [];
+              if (tasks.length === 0) return true;
+              return !tasks.every((t: any) => t.status === "completed");
+            });
+
+            setActiveMission(trulyActive || null);
+          } else {
+            setActiveMission(null);
+          }
+        })
+        .catch(console.error)
+        .finally(() => {
+          if (!cancelled) setLoadingMission(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [userId])
+  );
 
   const completedTasks =
     activeMission?.care_tasks?.filter((t: any) => t.status === "completed")
@@ -140,13 +149,14 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
               href="/daily-log"
             />
           </View>
-        </View>
-        <View style={styles.actionSlot}>
-          <QuickAction
-            icon="chatbubble-ellipses-outline"
-            title="Ask my health records"
-            href={"/ragassistant" as any}
-          />
+
+          <View style={styles.actionSlot}>
+            <QuickAction
+              icon="chatbubble-ellipses-outline"
+              title="Ask my health records"
+              href="/ragassistant"
+            />
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Active care mission</Text>
@@ -159,6 +169,7 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
           <CareCard
             title={activeMission.title}
             progress={`${completedTasks} of ${totalTasks} tasks complete`}
+            progressRatio={totalTasks > 0 ? completedTasks / totalTasks : 0}
             next={`Next: ${nextTask}`}
             onPress={() => router.push(`/mission/${activeMission.id}`)}
           />
@@ -185,20 +196,28 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
 function ProviderHome({ initial, firstName, userId }: { initial: string, firstName: string, userId: string | undefined }) {
   const [stats, setStats] = useState({ requests: 0, today: 0 });
 
-  useEffect(() => {
-    async function loadStats() {
+  useFocusEffect(
+    useCallback(() => {
       if (!userId) return;
-      try {
-        const providerId = await getProviderIdByProfileId(userId);
-        if (!providerId) return;
-        const dashStats = await getProviderDashboardStats(providerId);
-        setStats(dashStats);
-      } catch (error) {
-        console.error("Failed to load provider stats:", error);
+      let cancelled = false;
+
+      async function loadStats() {
+        try {
+          const providerId = await getProviderIdByProfileId(userId!);
+          if (!providerId || cancelled) return;
+          const dashStats = await getProviderDashboardStats(providerId);
+          if (!cancelled) setStats(dashStats);
+        } catch (error) {
+          console.error("Failed to load provider stats:", error);
+        }
       }
-    }
-    loadStats();
-  }, [userId]);
+
+      void loadStats();
+      return () => {
+        cancelled = true;
+      };
+    }, [userId])
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -206,7 +225,7 @@ function ProviderHome({ initial, firstName, userId }: { initial: string, firstNa
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>PROVIDER DASHBOARD</Text>
-            <Text style={styles.title}>Welcome, Dr. {firstName}</Text>
+            <Text style={styles.title}>Welcome, {firstName}</Text>
           </View>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initial}</Text>

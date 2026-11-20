@@ -237,7 +237,7 @@ export default function ProfileScreen() {
               <View style={styles.cardGroup}>
                 <ProfileField label="Address" value={address} isEditing={isEditing} onChangeText={setAddress} placeholder="Clinic location" multiline />
                 <ProfileField label="Languages" value={languages} isEditing={isEditing} onChangeText={setLanguages} placeholder="Comma separated" />
-                <ProfileField label="Accepted Schemes" value={schemes} isEditing={isEditing} onChangeText={setSchemes} placeholder="Comma separated" noBorder />
+                <ProfileField label="Accepted Schemes" value={schemes} isEditing={isEditing} onChangeText={setSchemes} placeholder="Comma separated" />
                 <ProfileField label="Accessibility Options" value={accessibility} isEditing={isEditing} onChangeText={setAccessibility} placeholder="Comma separated" noBorder />
               </View>
             </View>

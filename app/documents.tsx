@@ -4,16 +4,27 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from 'expo-document-picker';
 import { useAuth } from '../context/AuthContext'; 
 import { addTaskToMission, getActiveMissionsForUser, createMission } from '../services/missionEngine'; 
+import { ingestOcrDocument } from "@/services/rag";
+import { supabase } from "@/services/supabase/client";
 
 LogBox.ignoreLogs(["Response.blob() is using React Native"]);
 
 export default function DocumentsScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedText, setExtractedText] = useState("");
+  const [indexStatus, setIndexStatus ] = useState<string>("");
   const { user } = useAuth(); 
 
   const handleDocumentScan = async () => {
     try {
+      const ocrApiKey = process.env.EXPO_PUBLIC_OCR_API_KEY;
+      if (!ocrApiKey) {
+        Alert.alert(
+          "Key Missing",
+          "OCR API key not found. Check your .env file and restart Expo with 'npx expo start -c'."
+        );
+        return;
+      }
       const result = await DocumentPicker.getDocumentAsync({
         type: 'image/*', 
         copyToCacheDirectory: true,
@@ -25,37 +36,91 @@ export default function DocumentsScreen() {
 
       setIsProcessing(true);
       setExtractedText('');
+      setIndexStatus("");
       
       const file = result.assets[0];
+      const fileName = file.name || "document.jpg";
 
       const fileResponse = await fetch(file.uri);
       const blob = await fileResponse.blob();
 
       const formData = new FormData();
-      formData.append('file', blob, file.name || 'document.jpg');
+      formData.append('file', blob, fileName);
       formData.append('language', 'eng');
       formData.append('isOverlayRequired', 'false');
 
       const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
         headers: {
-          'apikey': process.env.EXPO_PUBLIC_OCR_API_KEY!, 
+          'apikey': ocrApiKey, 
         },
         body: formData,
       });
 
       const data = await response.json();
 
-      if (data && data.ParsedResults && data.ParsedResults.length > 0) {
-        const text = data.ParsedResults[0].ParsedText;
-        setExtractedText(text);
-      } else {
-        Alert.alert('No Text Found', 'Could not detect any text in this image.');
+      if (data?.IsErroredOnProcessing) {
+        throw new Error(
+          Array.isArray(data.ErrorMessage)
+            ? data.ErrorMessage.join(", ")
+            : data.ErrorMessage || "OCR processing failed."
+        );
       }
 
+      const text = data?.ParsedResults?.[0]?.ParsedText?.trim();
+
+      if (!text) {
+        Alert.alert("No Text Found", "Could not detect any text in this image.");
+        return;
+      }
+      setExtractedText(text);
+
+      // Persist for both the chat orchestrator (documents table) and RAG search
+      if (user) {
+        const today = new Date().toISOString().split("T")[0];
+
+        const [docResult, ragResult] = await Promise.allSettled([
+          supabase.from("documents").insert({
+            patient_id: user.id,
+            document_type: "prescription",
+            extracted_text: text,
+          }),
+          ingestOcrDocument({
+            extractedText: text,
+            fileName,
+            documentDate: today,
+          }),
+        ]);
+
+        const dbError =
+          docResult.status === "rejected"
+            ? docResult.reason
+            : docResult.value.error;
+
+        if (dbError) {
+          console.warn("Could not save to documents table:", dbError);
+        }
+
+        if (ragResult.status === "fulfilled") {
+          console.log(
+            "Document indexed for RAG:",
+            ragResult.value.sourceId,
+            ragResult.value.chunkCount
+          );
+          setIndexStatus("Saved & indexed for Health Records AI");
+        } else {
+          console.warn("Document RAG indexing failed:", ragResult.reason);
+          setIndexStatus("Text extracted, but AI record indexing failed");
+        }
+      }
     } catch (error) {
       console.error('Error during OCR processing:', error);
-      Alert.alert('Scan Failed', 'An error occurred while reading the document.');
+      Alert.alert(
+        "Scan Failed",
+        error instanceof Error
+          ? error.message
+          : "An error occurred while reading the document."
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -184,7 +249,9 @@ export default function DocumentsScreen() {
         {extractedText ? (
           <View style={styles.resultContainer}>
             <Text style={styles.resultTitle}>Extracted Content</Text>
-            
+            {!!indexStatus && (
+              <Text style={styles.statusText}>{indexStatus}</Text>
+            )}
             <ScrollView style={styles.scroll}>
               <Text style={styles.resultText} selectable={true}>
                 {extractedText}
@@ -242,5 +309,11 @@ const styles = StyleSheet.create({
   resultText: {
     color: "#718078",
     lineHeight: 22,
-  }
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#285C3B",
+    marginBottom: 10,
+  },
 });

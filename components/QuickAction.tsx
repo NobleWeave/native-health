@@ -11,7 +11,8 @@ type QuickActionProps = {
     | "/documents"
     | "/(tabs)/care"
     | "/dietary-needs"
-    | "/daily-log";
+    | "/daily-log"
+    | "/ragassistant";
 };
 
 export function QuickAction({ icon, title, href }: QuickActionProps) {

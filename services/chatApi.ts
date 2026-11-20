@@ -25,6 +25,7 @@ export async function fetchConversationMessages(conversationId: string) {
     .from("messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
+    .in("role", ["user", "assistant"])
     .order("created_at", { ascending: true });
 
   if (error) throw error;

@@ -176,6 +176,17 @@ export default function MissionDetailsScreen() {
     );
   }
 
+  if (!mission) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.center]}>
+        <Text style={styles.emptyText}>Mission could not be loaded.</Text>
+        <Pressable onPress={() => router.back()} style={styles.cancelBtn}>
+          <Text style={styles.cancelBtnText}>Go Back</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -232,7 +243,7 @@ export default function MissionDetailsScreen() {
                 const existing = consents.find(c => c.caregiver.id === cg.caregiver.id);
                 return (
                   <View key={cg.id} style={styles.cgOption}>
-                    <Text style={styles.cgOptionText}>{cg.caregiver.full_name}, {cg.caregiver_id}</Text>
+                    <Text style={styles.cgOptionText}>{cg.caregiver?.full_name}, {cg.relationship ? ` (${cg.relationship})` : ""}</Text>
                     {existing ? (
                       /* NEW: Show current role and Revoke button */
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -323,9 +334,12 @@ export default function MissionDetailsScreen() {
               <Text style={styles.emptyText}>No tasks added yet.</Text>
             ) : (
               mission?.care_tasks?.map((task: any) => {
+                const joinedAssignee = Array.isArray(task.assignee)
+                  ? task.assignee[0]?.full_name
+                  : task.assignee?.full_name;
                 // To show who it's assigned to
                 const assigneeName = task.assigned_to
-                  ? (task.assigned_to === user?.id ? "You" : "Caregiver") // Real name requires a JOIN in getMissionDetails
+                  ? (task.assigned_to === user?.id ? "You" : joinedAssignee || "Caregiver") // Real name requires a JOIN in getMissionDetails
                   : null;
 
                 return (

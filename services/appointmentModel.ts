@@ -96,14 +96,19 @@ export async function getProviderDashboardStats(providerId: string) {
     .eq("provider_id", providerId)
     .eq("status", "requested");
 
-  const today = new Date().toISOString().split("T")[0];
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
   const { count: todayCount } = await supabase
     .from("appointments")
     .select("*", { count: "exact", head: true })
     .eq("provider_id", providerId)
     .eq("status", "approved")
-    .gte("scheduled_at", `${today}T00:00:00Z`)
-    .lte("scheduled_at", `${today}T23:59:59Z`);
+    .gte("scheduled_at", startOfDay.toISOString())
+    .lte("scheduled_at", endOfDay.toISOString());
 
   return { requests: requests || 0, today: todayCount || 0 };
 }

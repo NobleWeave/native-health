@@ -87,7 +87,11 @@ export async function getMissionDetails(missionId: string) {
     .from("care_missions")
     .select(`
       *,
-      care_tasks (*)
+      patient:profiles!patient_id(full_name),
+      care_tasks (
+        *,
+        assignee:profiles!assigned_to(full_name)
+      )
     `)
     .eq("id", missionId)
     .order("created_at", { referencedTable: "care_tasks", ascending: true })

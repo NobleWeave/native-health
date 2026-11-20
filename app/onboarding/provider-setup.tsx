@@ -120,9 +120,9 @@ export default function ProviderSetupScreen() {
           insurance_schemes: [],
           accessibility: [],
         });
+        if (error) throw error;
         router.replace("/(tabs)");
         console.log("Blank provider profile created:", data);
-        if (error) throw error;
       }
     } catch (error) {
       console.error("Error creating blank provider profile:", error);
@@ -237,6 +237,17 @@ export default function ProviderSetupScreen() {
               </View>
 
               <View style={styles.inputGroup}>
+                <Text style={styles.label}>Accessibility Options</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Wheelchair ramp, Elevator (comma separated)"
+                  placeholderTextColor="#94A3B8"
+                  value={accessibility}
+                  onChangeText={setAccessibility}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Clinic Address</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
@@ -266,7 +277,7 @@ export default function ProviderSetupScreen() {
             )}
           </Pressable>
 
-          <Pressable style={styles.skipButton} onPress={handleSkip}>
+          <Pressable style={styles.skipButton} onPress={handleSkip} disabled={loading}>
             <Text style={styles.skipText}>
               {loading && step === 1 ? "Skipping..." : "Skip for now"}
             </Text>
