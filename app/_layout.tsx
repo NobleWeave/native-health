@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "../context/AuthContext";
+import { ReminderManager } from "../components/ReminderManager";
 
 export default function RootLayout() {
   return (
@@ -9,6 +10,7 @@ export default function RootLayout() {
           headerShown: false,
         }}
       />
+      <ReminderManager />
     </AuthProvider>
   );
 }

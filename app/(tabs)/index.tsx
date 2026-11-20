@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Link, router, useFocusEffect } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
 import {
@@ -14,54 +15,96 @@ import { CDCArticles } from "../../components/CDCArticles";
 import { QuickAction } from "../../components/QuickAction";
 import { useAuth } from "../../context/AuthContext";
 import { getActiveMissionsForUser } from "../../services/missionEngine";
-import { getProviderIdByProfileId, getProviderDashboardStats } from "../../services/appointmentModel";
+import {
+  getProviderIdByProfileId,
+  getProviderDashboardStats,
+} from "../../services/appointmentModel";
+import {
+  fetchUpcomingPatientReminders,
+  formatNextTrigger,
+  formatReminderTime,
+  unwrapRelation,
+  type TaskReminder,
+} from "../../services/reminderModel";
 
 export default function HomeScreen() {
   const { user, role } = useAuth();
 
-  const initial = user?.user_metadata?.full_name?.charAt(0).toUpperCase() || "U";
+  const initial =
+    user?.user_metadata?.full_name?.charAt(0).toUpperCase() || "U";
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
 
   if (role === "provider") {
-    return <ProviderHome initial={initial} firstName={firstName} userId={user?.id} />;
+    return (
+      <ProviderHome initial={initial} firstName={firstName} userId={user?.id} />
+    );
   }
 
-  return <PatientHome initial={initial} firstName={firstName} userId={user?.id} />;
+  return (
+    <PatientHome initial={initial} firstName={firstName} userId={user?.id} />
+  );
 }
 
-function PatientHome({ initial, firstName, userId }: { initial: string, firstName: string, userId: string | undefined }) {
+function PatientHome({
+  initial,
+  firstName,
+  userId,
+}: {
+  initial: string;
+  firstName: string;
+  userId: string | undefined;
+}) {
   const [activeMission, setActiveMission] = useState<any | null>(null);
   const [loadingMission, setLoadingMission] = useState(true);
+  const [upcomingReminders, setUpcomingReminders] = useState<TaskReminder[]>(
+    [],
+  );
+  const [loadingReminders, setLoadingReminders] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       if (!userId) return;
       let cancelled = false;
 
-      getActiveMissionsForUser(userId)
-        .then((data) => {
-          if (cancelled) return;
+      async function loadHomeData() {
+        const [missionsRes, remindersRes] = await Promise.allSettled([
+          getActiveMissionsForUser(userId!),
+          fetchUpcomingPatientReminders(userId!, 3),
+        ]);
+
+        if (cancelled) return;
+
+        if (missionsRes.status === "fulfilled") {
+          const data = missionsRes.value;
           if (data && data.length > 0) {
             const trulyActive = data.find((m: any) => {
               const tasks = m.care_tasks || [];
               if (tasks.length === 0) return true;
               return !tasks.every((t: any) => t.status === "completed");
             });
-
             setActiveMission(trulyActive || null);
           } else {
             setActiveMission(null);
           }
-        })
-        .catch(console.error)
-        .finally(() => {
-          if (!cancelled) setLoadingMission(false);
-        });
+        } else {
+          console.error("Failed to load active missions:", missionsRes.reason);
+        }
+        setLoadingMission(false);
+
+        if (remindersRes.status === "fulfilled") {
+          setUpcomingReminders(remindersRes.value);
+        } else {
+          console.error("Failed to load reminders:", remindersRes.reason);
+        }
+        setLoadingReminders(false);
+      }
+
+      void loadHomeData();
 
       return () => {
         cancelled = true;
       };
-    }, [userId])
+    }, [userId]),
   );
 
   const completedTasks =
@@ -76,7 +119,9 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>GOOD MORNING, {firstName.toUpperCase()}</Text>
+            <Text style={styles.eyebrow}>
+              GOOD MORNING, {firstName.toUpperCase()}
+            </Text>
             <Text style={styles.title}>How can we help?</Text>
           </View>
 
@@ -181,10 +226,91 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
 
         <Text style={styles.sectionTitle}>Today</Text>
 
-        <View style={styles.listCard}>
-          <Text style={styles.itemTitle}>Medication reminder</Text>
-          <Text style={styles.itemText}>Evening medicine · 8:00 PM</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Upcoming reminders</Text>
+          <Pressable onPress={() => router.push("/reminders")}>
+            <Text style={styles.showAllText}>Show all</Text>
+          </Pressable>
         </View>
+
+        {loadingReminders ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#285C3B" />
+          </View>
+        ) : upcomingReminders.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>
+              No reminders set yet. Add one from any mission task.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.reminderList}>
+            {upcomingReminders.map((reminder) => {
+              const mission = unwrapRelation(reminder.mission);
+              const task = unwrapRelation(reminder.task);
+
+              return (
+                <Pressable
+                  key={reminder.id}
+                  style={({ pressed }) => [
+                    styles.listCard,
+                    reminder.is_ringing && styles.listCardRinging,
+                    pressed && { opacity: 0.75 },
+                  ]}
+                  onPress={() => router.push(`/mission/${reminder.mission_id}`)}
+                >
+                  <View style={styles.reminderRow}>
+                    <View
+                      style={[
+                        styles.reminderIconWrap,
+                        reminder.is_ringing && styles.reminderIconRinging,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          reminder.is_ringing
+                            ? "alert-circle-outline"
+                            : "alarm-outline"
+                        }
+                        size={18}
+                        color={reminder.is_ringing ? "#C0392B" : "#285C3B"}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.reminderTitleRow}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {reminder.title}
+                        </Text>
+                        {reminder.is_ringing && (
+                          <View style={styles.ringingBadge}>
+                            <Text style={styles.ringingBadgeText}>DUE NOW</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={styles.itemText} numberOfLines={1}>
+                        {formatReminderTime(reminder.reminder_time)} ·{" "}
+                        {formatNextTrigger(
+                          reminder.next_trigger_at,
+                          reminder.is_ringing,
+                        )}
+                      </Text>
+
+                      {(mission?.title || task?.title) && (
+                        <Text style={styles.reminderSub} numberOfLines={1}>
+                          {[mission?.title, task?.title]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {/* CDC Health & Wellness Articles */}
         <CDCArticles />
@@ -193,7 +319,15 @@ function PatientHome({ initial, firstName, userId }: { initial: string, firstNam
   );
 }
 
-function ProviderHome({ initial, firstName, userId }: { initial: string, firstName: string, userId: string | undefined }) {
+function ProviderHome({
+  initial,
+  firstName,
+  userId,
+}: {
+  initial: string;
+  firstName: string;
+  userId: string | undefined;
+}) {
   const [stats, setStats] = useState({ requests: 0, today: 0 });
 
   useFocusEffect(
@@ -216,7 +350,7 @@ function ProviderHome({ initial, firstName, userId }: { initial: string, firstNa
       return () => {
         cancelled = true;
       };
-    }, [userId])
+    }, [userId]),
   );
 
   return (
@@ -233,11 +367,17 @@ function ProviderHome({ initial, firstName, userId }: { initial: string, firstNa
         </View>
 
         <View style={styles.providerStatsRow}>
-          <Pressable style={styles.statCard} onPress={() => router.push("/(tabs)/schedule" as any)}>
+          <Pressable
+            style={styles.statCard}
+            onPress={() => router.push("/(tabs)/schedule" as any)}
+          >
             <Text style={styles.statNumber}>{stats.requests}</Text>
             <Text style={styles.statLabel}>Pending Requests</Text>
           </Pressable>
-          <Pressable style={styles.statCard} onPress={() => router.push("/(tabs)/schedule" as any)}>
+          <Pressable
+            style={styles.statCard}
+            onPress={() => router.push("/(tabs)/schedule" as any)}
+          >
             <Text style={styles.statNumber}>{stats.today}</Text>
             <Text style={styles.statLabel}>Patients Today</Text>
           </Pressable>
@@ -246,12 +386,17 @@ function ProviderHome({ initial, firstName, userId }: { initial: string, firstNa
         <Text style={styles.sectionTitle}>Provider Actions</Text>
         <View style={styles.actions}>
           <View style={styles.actionSlot}>
-             <Link href={"/(tabs)/schedule" as any} asChild>
-               <Pressable style={styles.quickCard}>
-                 <Text style={styles.quickIcon}>📅</Text>
-                 <Text style={styles.quickTitle}>Manage Schedule</Text>
-               </Pressable>
-             </Link>
+            <Link href={"/(tabs)/schedule" as any} asChild>
+              <Pressable style={styles.quickCard}>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={24}
+                    color="#000"
+                    style={styles.quickIcon}
+                  />
+                <Text style={styles.quickTitle}>Manage Schedule</Text>
+              </Pressable>
+            </Link>
           </View>
         </View>
       </ScrollView>
@@ -402,10 +547,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   providerStatsRow: { flexDirection: "row", gap: 14, marginBottom: 28 },
-  statCard: { flex: 1, backgroundColor: "white", borderRadius: 16, padding: 20, borderWidth: 1, borderColor: "#E4E8E4", alignItems: "center" },
+  statCard: {
+    flex: 1,
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E4E8E4",
+    alignItems: "center",
+  },
   statNumber: { fontSize: 32, fontWeight: "800", color: "#285C3B" },
-  statLabel: { fontSize: 13, fontWeight: "600", color: "#718078", marginTop: 6 },
-  quickCard: { flex: 1, minHeight: 112, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#E4E8E4" },
+  statLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#718078",
+    marginTop: 6,
+  },
+  quickCard: {
+    flex: 1,
+    minHeight: 112,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E4E8E4",
+  },
   quickIcon: { fontSize: 24, marginBottom: 10 },
   quickTitle: { color: "#27312B", fontWeight: "600", fontSize: 14 },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  showAllText: {
+    color: "#285C3B",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  reminderList: {
+    gap: 10,
+  },
+  listCardRinging: {
+    borderColor: "#F5C6CB",
+    backgroundColor: "#FFFDFD",
+  },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  reminderIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#E6EFE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reminderIconRinging: {
+    backgroundColor: "#FFEBEE",
+  },
+  reminderTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  ringingBadge: {
+    backgroundColor: "#FFEBEE",
+    borderColor: "#FFCDD2",
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  ringingBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#C62828",
+  },
+  reminderSub: {
+    fontSize: 12,
+    color: "#718078",
+    marginTop: 3,
+  },
 });
