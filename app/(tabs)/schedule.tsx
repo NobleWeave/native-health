@@ -25,6 +25,7 @@ import {
   toggleSlotAvailability,
   deleteAvailabilitySlot,
 } from "../../services/availabilityModel";
+import { supabase } from "../../services/supabase/client";
 
 export default function ProviderScheduleScreen() {
   const { user } = useAuth();
@@ -91,28 +92,21 @@ export default function ProviderScheduleScreen() {
   const updateStatus = async (appointment: any, newStatus: string) => {
     setActionLoading(true);
     try {
-      await updateAppointmentStatus(appointment.id, newStatus);
+      if (newStatus === "approved") {
+        const { error } = await supabase.rpc(
+          "approve_appointment_and_advance_mission",
+          { p_appointment_id: appointment.id }
+        );
+        if (error) throw error;
+      } else {
+        await updateAppointmentStatus(appointment.id, newStatus);
+      }
+
       setAppointments((prev) =>
         prev.map((apt) =>
-          apt.id === appointment.id ? { ...apt, status: newStatus } : apt,
-        ),
+          apt.id === appointment.id ? { ...apt, status: newStatus } : apt
+        )
       );
-
-      // If approved, push the patient's mission forward
-      if (newStatus === "approved" && appointment.mission_id) {
-        try {
-          await transitionMission(
-            appointment.mission_id,
-            "provider_selected",
-            "appointment_booked",
-            user!.id,
-          );
-        } catch (e) {
-          console.log(
-            "Mission transition skipped. Status may not be provider_selected.",
-          );
-        }
-      }
     } catch (error) {
       Alert.alert("Error", "Could not update status.");
     } finally {

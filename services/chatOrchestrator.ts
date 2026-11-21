@@ -14,6 +14,7 @@ import {
   fetchProviderAvailability,
   toggleSlotAvailability,
 } from "./availabilityModel";
+import { advanceMissionToProviderSelected } from "./missionEngine";
 import { supabase } from "./supabase/client";
 
 // --- 1. ZOD SCHEMA FOR MULTI-ACTION PARSING ---
@@ -703,33 +704,6 @@ function resolveSelectedSlot(
 
   return undefined;
 }
-
-async function advanceMissionToProviderSelected(
-  missionId: string,
-  actorId: string
-) {
-  try {
-    const mission = await getMissionDetails(missionId);
-    let state = mission.status as MissionState;
-
-    if (state === "created") {
-      await transitionMission(missionId, "created", "care_identified", actorId);
-      state = "care_identified";
-    }
-    if (state === "care_identified") {
-      await transitionMission(
-        missionId,
-        "care_identified",
-        "provider_selected",
-        actorId
-      );
-    }
-  } catch (err) {
-    console.warn("Mission state transition skipped:", err);
-  }
-}
-
-// Add this below your processChatMessage function in services/chatOrchestrator.ts
 
 const KEEP_RECENT_MESSAGES = 6;
 const COMPRESS_BATCH_THRESHOLD = 6;

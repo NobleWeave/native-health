@@ -14,7 +14,7 @@ export type MissionState =
 export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
 // The strict state transition map
-const VALID_TRANSITIONS: Record<MissionState, MissionState[]> = {
+export const VALID_TRANSITIONS: Record<MissionState, MissionState[]> = {
   created: ["care_identified", "cancelled"],
   care_identified: ["provider_selected", "cancelled"],
   provider_selected: ["appointment_booked", "cancelled"],
@@ -217,4 +217,29 @@ export async function updateTaskStatus(taskId: string, missionId: string, status
   }
 
   return data;
+}
+
+export async function advanceMissionToProviderSelected(
+  missionId: string,
+  actorId: string
+) {
+  try {
+    const mission = await getMissionDetails(missionId);
+    let state = mission.status as MissionState;
+
+    if (state === "created") {
+      await transitionMission(missionId, "created", "care_identified", actorId);
+      state = "care_identified";
+    }
+    if (state === "care_identified") {
+      await transitionMission(
+        missionId,
+        "care_identified",
+        "provider_selected",
+        actorId
+      );
+    }
+  } catch (err) {
+    console.warn("Mission state transition to provider_selected skipped:", err);
+  }
 }

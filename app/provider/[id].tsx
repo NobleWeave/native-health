@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { getProviderById } from "../../services/profileModel";
 import { fetchProviderAvailability } from "../../services/availabilityModel";
-import { getActiveMissionsForUser } from "../../services/missionEngine";
+import { getActiveMissionsForUser, advanceMissionToProviderSelected } from "../../services/missionEngine";
 import { bookAppointment } from "../../services/appointmentModel";
 
 export default function ProviderDetailsScreen() {
@@ -61,6 +61,8 @@ export default function ProviderDetailsScreen() {
     setBooking(true);
     try {
       await bookAppointment(user.id, provider.id, missionId, selectedSlot.start_time);
+      await advanceMissionToProviderSelected(missionId, user.id);
+
       Alert.alert(
         "Booking Requested",
         "Your appointment request has been sent to the provider.",

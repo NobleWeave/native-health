@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
-import { getMissionDetails, transitionMission, getMissionEvents, MissionState, updateTaskStatus, addTaskToMission } from "../../services/missionEngine";
+import { getMissionDetails, transitionMission, getMissionEvents, MissionState, updateTaskStatus, addTaskToMission, VALID_TRANSITIONS } from "../../services/missionEngine";
 import { getActiveCaregivers, getMissionConsents, grantConsent, revokeMissionConsent } from "../../services/careCircle";
 import { assignTask, unassignTask } from "../../services/tasks";
 import { canAccess } from "../../utils/permissions";
@@ -16,6 +16,15 @@ const STATE_LABELS: Record<MissionState, string> = {
   created: "Mission Created", care_identified: "Care Identified", provider_selected: "Provider Selected",
   appointment_booked: "Appointment Booked", consultation: "Consultation Phase", follow_up: "Follow-up",
   completed: "Completed", cancelled: "Cancelled"
+};
+
+const TRANSITION_BUTTON_LABELS: Partial<Record<MissionState, string>> = {
+  care_identified: "Mark Care Identified",
+  provider_selected: "Mark Provider Selected",
+  appointment_booked: "Confirm Appointment Booked",
+  consultation: "Start Consultation",
+  follow_up: "Move to Follow-up",
+  completed: "Complete Mission",
 };
 
 export default function MissionDetailsScreen() {
@@ -37,6 +46,8 @@ export default function MissionDetailsScreen() {
   const [reminderTask, setReminderTask] = useState<{ id: string; title: string } | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
+
+  const [transitioning, setTransitioning] = useState(false);
 
   const loadMissionData = useCallback(async () => {
     try {
@@ -170,6 +181,51 @@ export default function MissionDetailsScreen() {
     );
   };
 
+  const handleStateTransition = (nextState: MissionState) => {
+    if (!mission || !user || !canManage) return;
+
+    const execute = async () => {
+      setTransitioning(true);
+      try {
+        await transitionMission(
+          mission.id,
+          mission.status as MissionState,
+          nextState,
+          user.id
+        );
+        await loadMissionData();
+      } catch (error: any) {
+        Alert.alert(
+          "Transition Failed",
+          error?.message || "Could not update mission status."
+        );
+      } finally {
+        setTransitioning(false);
+      }
+    };
+
+    if (nextState === "cancelled" || nextState === "completed") {
+      const isCancel = nextState === "cancelled";
+      Alert.alert(
+        isCancel ? "Cancel Mission" : "Complete Mission",
+        isCancel
+          ? "Are you sure you want to cancel this care mission? This cannot be undone."
+          : "Mark this care mission as completed?",
+        [
+          { text: "No", style: "cancel" },
+          {
+            text: isCancel ? "Yes, Cancel" : "Complete",
+            style: isCancel ? "destructive" : "default",
+            onPress: () => void execute(),
+          },
+        ]
+      );
+      return;
+    }
+
+    void execute();
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
@@ -188,6 +244,13 @@ export default function MissionDetailsScreen() {
       </SafeAreaView>
     );
   }
+
+  const currentStatus = mission.status as MissionState;
+  const allowedNextStates = VALID_TRANSITIONS[currentStatus] || [];
+  const forwardStates = allowedNextStates.filter((s) => s !== "cancelled");
+  const canCancelMission = allowedNextStates.includes("cancelled");
+  const isTerminal = currentStatus === "completed" || currentStatus === "cancelled";
+  const canEditMission = canManage && !isTerminal;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -274,8 +337,50 @@ export default function MissionDetailsScreen() {
           </View>
         )}
 
-        <View style={styles.statusCard}>
-          <Text style={styles.statusLabel}>{STATE_LABELS[mission?.status as MissionState]}</Text>
+        <View
+          style={[
+            styles.statusCard,
+            currentStatus === "cancelled" && styles.statusCardCancelled,
+          ]}
+        >
+          <Text style={styles.statusEyebrow}>CURRENT STAGE</Text>
+          <Text style={styles.statusLabel}>{STATE_LABELS[currentStatus]}</Text>
+
+          {canEditMission && (forwardStates.length > 0 || canCancelMission) && (
+            <View style={styles.lifecycleActions}>
+              {forwardStates.map((nextState) => (
+                <Pressable
+                  key={nextState}
+                  style={[
+                    styles.advanceBtn,
+                    nextState === "completed" && styles.completeBtn,
+                    transitioning && { opacity: 0.7 },
+                  ]}
+                  onPress={() => handleStateTransition(nextState)}
+                  disabled={transitioning}
+                >
+                  {transitioning ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.advanceBtnText}>
+                      {TRANSITION_BUTTON_LABELS[nextState] || STATE_LABELS[nextState]} →
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+
+              {/* Strictly available only for the first 4 states per Figure 5.1 */}
+              {canCancelMission && (
+                <Pressable
+                  style={[styles.cancelMissionBtn, transitioning && { opacity: 0.7 }]}
+                  onPress={() => handleStateTransition("cancelled")}
+                  disabled={transitioning}
+                >
+                  <Text style={styles.cancelMissionBtnText}>Cancel Mission</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Task List */}
@@ -415,4 +520,44 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: "#718078", fontWeight: "700" },
   miniBtnDanger: { backgroundColor: "#FFF7F7", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: "#F5DADA" },
   miniBtnDangerText: { fontSize: 11, fontWeight: "600", color: "#C0392B" },
+  statusCardCancelled: { backgroundColor: "#FFEBEE" },
+  statusEyebrow: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+    color: "#52665A",
+    marginBottom: 4,
+  },
+  lifecycleActions: {
+    marginTop: 14,
+    gap: 8,
+  },
+  advanceBtn: {
+    backgroundColor: "#285C3B",
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  completeBtn: {
+    backgroundColor: "#17201B",
+  },
+  advanceBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  cancelMissionBtn: {
+    backgroundColor: "#FFF7F7",
+    borderWidth: 1,
+    borderColor: "#E2B8B8",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  cancelMissionBtnText: {
+    color: "#C0392B",
+    fontSize: 13,
+    fontWeight: "700",
+  },
 });
