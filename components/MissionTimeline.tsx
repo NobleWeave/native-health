@@ -110,6 +110,15 @@ export function MissionTimeline({ events }: { events: MissionEvent[] }) {
 
               <Text style={styles.actorText}>By {actorName || "System"}</Text>
 
+              {event.event_type === "TASK_ASSIGNED" &&
+                event.metadata?.task_title && (
+                  <View style={styles.metaBox}>
+                    <Text style={styles.metaText}>
+                      {`Assigned ${event.metadata.task_title} to ${event.metadata.assignee_name ? ` to ${event.metadata.assignee_name}`: ""}`}
+                    </Text>
+                  </View>
+              )}
+
               {/* Render Transition Details if available */}
               {event.event_type === "STATE_TRANSITION" &&
                 event.metadata?.from && (
