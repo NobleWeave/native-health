@@ -405,7 +405,7 @@ export default function ProviderScheduleScreen() {
                     <View style={styles.actionRow}>
                       <Pressable
                         style={[styles.btn, styles.btnRevoke]}
-                        onPress={() => updateStatus(apt, "revoked")}
+                        onPress={() => updateStatus(apt, "rejected")}
                         disabled={actionLoading}
                       >
                         <Text style={styles.btnRevokeText}>Revoke</Text>

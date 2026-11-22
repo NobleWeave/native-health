@@ -180,7 +180,8 @@ export async function processChatMessage(
     selected_provider_id: null,
     summary: "",
   };
-  const { _lastSummarizedAt, ...cleanCareContext } = currentState.care_context || {};
+  const { _lastSummarizedAt, ...cleanCareContext } =
+    currentState.care_context || {};
   const formattedHistory = history
     ? history
         .reverse()
@@ -193,19 +194,27 @@ export async function processChatMessage(
   const conversationContext = `${backgroundSummary}Recent Conversation:\n${formattedHistory}\n\nCurrent User Query: ${userMessage}`;
 
   // C. Call LLM 1: The Router
-  const routerResponseJson = await callLLM(
-    ROUTER_PROMPT,
-    JSON.stringify({
-      currentDateTime: new Date().toString(),
-      context: conversationContext,
-      currentState: cleanCareContext,
-    }),
-    "json_object",
-  );
-  console.log("Router response:", routerResponseJson);
+  let parsed: z.infer<typeof IntentSchema>;
+  try {
+    const routerResponseJson = await callLLM(
+      ROUTER_PROMPT,
+      JSON.stringify({
+        currentDateTime: new Date().toString(),
+        context: conversationContext,
+        currentState: cleanCareContext,
+      }),
+      "json_object",
+    );
 
-  // D. Parse & Validate Intents
-  const parsed = IntentSchema.parse(JSON.parse(routerResponseJson));
+    const result = IntentSchema.safeParse(
+      JSON.parse(extractJsonObject(routerResponseJson)),
+    );
+    // D. Parse & Validate Intents
+    parsed = result.success ? result.data : fallbackKeywordRouter(userMessage);
+  } catch (err) {
+    console.warn("Router LLM unavailable, using local fallback router:", err);
+    parsed = fallbackKeywordRouter(userMessage);
+  }
   const { intents, entities = {} } = parsed;
   console.log("Parsed Intents:", intents, "Entities:", entities);
 
@@ -243,7 +252,11 @@ export async function processChatMessage(
         `User Medications: ${healthProfile?.medications || "None recorded"}`,
       ].join("\n");
     }
-    medicalResult = await callLLM(MEDICAL_PROMPT, contextString, "text");
+    try {
+      medicalResult = await callLLM(MEDICAL_PROMPT, contextString, "text");
+    } catch (error) {
+      medicalResult = null;
+    }
   }
 
   // Execute Sequential Action Tools
@@ -322,17 +335,17 @@ export async function processChatMessage(
   }
 
   // Branch 4: Delegation
-  if (
-    intents.includes("DELEGATE_TASK")
-  ) {
+  if (intents.includes("DELEGATE_TASK")) {
     executedTools.push("delegateTask");
     if (!currentMissionId) {
       actionResults.delegation = {
-        error: "No active care mission selected. Please select or create a mission first.",
+        error:
+          "No active care mission selected. Please select or create a mission first.",
       };
     } else if (!entities.caregiverName) {
       actionResults.delegation = {
-        error: "Please specify which caregiver from your Care Circle you want to assign the task to.",
+        error:
+          "Please specify which caregiver from your Care Circle you want to assign the task to.",
       };
     } else {
       const { data: cgList } = await supabase
@@ -348,11 +361,13 @@ export async function processChatMessage(
 
       const targetName = entities.caregiverName.toLowerCase();
       const matchedCg = cgList?.find((cg) =>
-        getCaregiverName(cg).toLowerCase().includes(targetName)
+        getCaregiverName(cg).toLowerCase().includes(targetName),
       );
 
       if (!matchedCg) {
-        const availableNames = (cgList || []).map(getCaregiverName).filter(Boolean);
+        const availableNames = (cgList || [])
+          .map(getCaregiverName)
+          .filter(Boolean);
         actionResults.delegation = {
           error: `Could not find an active caregiver named "${entities.caregiverName}" in your Care Circle.`,
           available_caregivers: availableNames,
@@ -378,7 +393,7 @@ export async function processChatMessage(
             targetTask =
               (requestedTitle
                 ? existingTasks.find((t) =>
-                    t.title.toLowerCase().includes(requestedTitle)
+                    t.title.toLowerCase().includes(requestedTitle),
                   )
                 : null) || existingTasks[0];
           }
@@ -395,7 +410,7 @@ export async function processChatMessage(
             matchedCg.caregiver_id,
             currentMissionId,
             userId,
-            targetTask.title
+            targetTask.title,
           );
           actionResults.delegation = {
             task: targetTask.title,
@@ -437,11 +452,12 @@ export async function processChatMessage(
     const providerId = await resolveProviderId(
       entities,
       mergedContext.foundProviders || [],
-      currentProviderId
+      currentProviderId,
     );
     if (!providerId) {
       actionResults.appointment = {
-        error: mergedContext.foundProviders?.length > 0
+        error:
+          mergedContext.foundProviders?.length > 0
             ? "Please tell me which provider from the list you'd like to check or book with."
             : "No provider selected. Please search for a provider first.",
       };
@@ -458,7 +474,9 @@ export async function processChatMessage(
       // Persist formatted slots in care_context so the next turn can pick by slotId
       mergedContext.availableSlots = formattedSlots;
 
-      const userPickedTime = Boolean(entities.slotId || entities.appointmentTime);
+      const userPickedTime = Boolean(
+        entities.slotId || entities.appointmentTime,
+      );
 
       if (userPickedTime) {
         if (!currentMissionId) {
@@ -472,7 +490,7 @@ export async function processChatMessage(
           const matchedSlot = resolveSelectedSlot(
             entities,
             formattedSlots,
-            userMessage
+            userMessage,
           );
 
           if (matchedSlot) {
@@ -480,7 +498,7 @@ export async function processChatMessage(
               userId,
               providerId,
               currentMissionId,
-              matchedSlot.start_time
+              matchedSlot.start_time,
             );
 
             await advanceMissionToProviderSelected(currentMissionId, userId);
@@ -550,16 +568,31 @@ export async function processChatMessage(
   }
 
   // I. Call LLM 3: Final Response Generator
-  const finalResponseText = await callLLM(
-    RESPONSE_PROMPT,
-    JSON.stringify({
-      context: conversationContext,
-      medicalContext: medicalResult,
-      toolsExecuted: executedTools.length > 0 ? executedTools : "none",
-      toolResults: actionResults,
-    }),
-    "text",
-  );
+  let finalResponseText: string;
+
+  if (executedTools.length === 0 && medicalResult) {
+    // Fast path: saves 1 full LLM call and avoids an unnecessary failure point
+    finalResponseText = medicalResult;
+  } else {
+    try {
+      finalResponseText = await callLLM(
+        RESPONSE_PROMPT,
+        JSON.stringify({
+          context: conversationContext,
+          medicalContext: medicalResult,
+          toolsExecuted: executedTools.length > 0 ? executedTools : "none",
+          toolResults: actionResults,
+        }),
+        "text",
+      );
+    } catch (err) {
+      console.warn(
+        "Response LLM unavailable, using deterministic formatter:",
+        err,
+      );
+      finalResponseText = formatFallbackResponse(actionResults, medicalResult);
+    }
+  }
 
   // J. Save & Return Final Assistant Message
   await supabase.from("messages").insert({
@@ -568,9 +601,11 @@ export async function processChatMessage(
     content: finalResponseText,
   });
 
-  manageContextWindow(conversationId, currentState.summary || "", _lastSummarizedAt).catch(
-    console.error,
-  );
+  manageContextWindow(
+    conversationId,
+    currentState.summary || "",
+    _lastSummarizedAt,
+  ).catch(console.error);
 
   return finalResponseText;
 }
@@ -581,7 +616,7 @@ const UUID_REGEX =
 async function resolveProviderId(
   entities: { providerId?: string; providerName?: string },
   foundProviders: Array<{ id: string; name: string }> = [],
-  currentProviderId: string | null
+  currentProviderId: string | null,
 ): Promise<string | null> {
   // 1. Trust entities.providerId ONLY if it is a real UUID
   if (entities.providerId && UUID_REGEX.test(entities.providerId)) {
@@ -602,7 +637,7 @@ async function resolveProviderId(
     const exactOrPartial = foundProviders.find(
       (p) =>
         p.name.toLowerCase().includes(rawName) ||
-        rawName.includes(p.name.toLowerCase())
+        rawName.includes(p.name.toLowerCase()),
     );
     if (exactOrPartial) return exactOrPartial.id;
   }
@@ -666,7 +701,7 @@ function formatSlotForUser(slot: any): FormattedSlot {
 function resolveSelectedSlot(
   entities: { slotId?: string; appointmentTime?: string },
   availableSlots: FormattedSlot[],
-  userMessage: string
+  userMessage: string,
 ): FormattedSlot | undefined {
   // 1. Exact slotId match (most reliable)
   if (entities.slotId) {
@@ -679,7 +714,7 @@ function resolveSelectedSlot(
     const targetMs = new Date(entities.appointmentTime).getTime();
     if (!Number.isNaN(targetMs)) {
       const byMs = availableSlots.find(
-        (s) => new Date(s.start_time).getTime() === targetMs
+        (s) => new Date(s.start_time).getTime() === targetMs,
       );
       if (byMs) return byMs;
     }
@@ -710,7 +745,7 @@ const COMPRESS_BATCH_THRESHOLD = 6;
 async function manageContextWindow(
   conversationId: string,
   currentSummary: string,
-  lastSummarizedAt?: string
+  lastSummarizedAt?: string,
 ) {
   // 1. Fetch visible messages that have not been summarized yet
   let query = supabase
@@ -735,7 +770,7 @@ async function manageContextWindow(
   // 3. Compress everything older than the latest 6 messages
   const msgsToCompress = unsummarized.slice(
     0,
-    unsummarized.length - KEEP_RECENT_MESSAGES
+    unsummarized.length - KEEP_RECENT_MESSAGES,
   );
 
   const rawHistoryToCompress = msgsToCompress
@@ -777,37 +812,126 @@ async function manageContextWindow(
 }
 
 // Helper to call LLM API using Gemini via Expo env vars
+type LLMTarget = {
+  name: string;
+  url: string;
+  apiKey?: string;
+  model: string;
+};
+
+const LLM_TARGETS: LLMTarget[] = [
+  {
+    name: "gemini-3.1-flash-lite",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+    model: "gemini-3.1-flash-lite",
+  },
+  {
+    name: "gemini-2.5-flash-lite",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+    model: "gemini-2.5-flash-lite",
+  },
+  {
+    name: "gemini-2.5-flash",
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+    model: "gemini-2.5-flash",
+  },
+  // Optional cross-provider backup (free tier, OpenAI-compatible)
+  {
+    name: "groq-llama-3.3-70b",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    apiKey: process.env.EXPO_PUBLIC_GROQ_API_KEY,
+    model: "llama-3.3-70b-versatile",
+  },
+];
+
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const REQUEST_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callLLM(
   systemPrompt: string,
   userPrompt: string,
   format: "text" | "json_object" = "text",
-) {
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.EXPO_PUBLIC_GEMINI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gemini-3.1-flash-lite",
-        response_format: { type: format },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    },
-  );
+): Promise<string> {
+  const availableTargets = LLM_TARGETS.filter((t) => Boolean(t.apiKey));
+  let lastError: unknown = new Error("No LLM API keys configured.");
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
+  for (const target of availableTargets) {
+    // Try primary model up to 2 times with jitter; fallbacks once each to keep latency low
+    const maxAttempts = target === availableTargets[0] ? 2 : 1;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetchWithTimeout(
+          target.url,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${target.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: target.model,
+              ...(format === "json_object"
+                ? { response_format: { type: "json_object" } }
+                : {}),
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+            }),
+          },
+          REQUEST_TIMEOUT_MS,
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data?.choices?.[0]?.message?.content;
+          if (typeof content === "string" && content.trim().length > 0) {
+            return content;
+          }
+          throw new Error(`${target.name} returned empty content`);
+        }
+
+        const errText = await response.text();
+        lastError = new Error(
+          `${target.name} HTTP ${response.status}: ${errText}`,
+        );
+
+        // Do not retry client errors (400/401/403); move to next model immediately
+        if (!RETRYABLE_STATUS.has(response.status)) break;
+
+        if (attempt < maxAttempts) {
+          const delayMs = 400 * attempt + Math.floor(Math.random() * 250);
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      } catch (err) {
+        lastError = err;
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+    }
+    console.warn(`LLM target failed (${target.name}), trying next fallback...`);
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  throw lastError;
 }
 
 export async function generateConversationTitle(firstMessage: string) {
@@ -821,4 +945,141 @@ export async function generateConversationTitle(firstMessage: string) {
   } catch (error) {
     return "Care Navigation"; // Fallback title
   }
+}
+
+function extractJsonObject(raw: string): string {
+  const cleaned = raw.replace(/```json\s*|```/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  return start !== -1 && end !== -1 ? cleaned.slice(start, end + 1) : cleaned;
+}
+
+function fallbackKeywordRouter(
+  userMessage: string,
+): z.infer<typeof IntentSchema> {
+  const lower = userMessage.toLowerCase();
+
+  // 1. Provider search
+  if (/(find|search|doctor|specialist|clinic|hospital|near me)/.test(lower)) {
+    const specialities = [
+      "cardiology",
+      "cardiologist",
+      "orthopaedics",
+      "orthopaedic",
+      "dermatology",
+      "dermatologist",
+      "pediatrics",
+      "pediatrician",
+      "neurology",
+      "gynecology",
+      "dentist",
+      "general",
+    ];
+    const matchedSpec = specialities.find((s) => lower.includes(s));
+    const costMatch = lower.match(/(?:under|below|max|₹|rs\.?)\s*(\d{2,5})/i);
+    const schemeMatch = lower.match(/\b(pm-jay|pmjay|cghs|esic)\b/i);
+
+    return {
+      intents: ["FIND_CARE"],
+      entities: {
+        speciality: matchedSpec,
+        maxCost: costMatch ? Number(costMatch[1]) : undefined,
+        scheme: schemeMatch ? schemeMatch[1].toUpperCase() : undefined,
+      },
+    };
+  }
+
+  // 2. Booking / slots
+  if (/(book|slot|appointment|available|availability)/.test(lower)) {
+    return { intents: ["BOOK_APPOINTMENT"], entities: {} };
+  }
+
+  // 3. Mission creation
+  if (/(create|start|new)\s+(a\s+)?(care\s+)?mission/.test(lower)) {
+    return {
+      intents: ["CREATE_MISSION"],
+      entities: { missionTitle: "New Care Mission" },
+    };
+  }
+
+  // 4. Default
+  return { intents: ["HEALTH_QUESTION"], entities: {} };
+}
+
+function formatFallbackResponse(
+  actionResults: Record<string, any>,
+  medicalResult: string | null,
+): string {
+  const parts: string[] = [];
+
+  if (medicalResult) {
+    parts.push(medicalResult.trim());
+  }
+
+  if (Array.isArray(actionResults.providers)) {
+    if (actionResults.providers.length === 0) {
+      parts.push(
+        "I couldn't find matching providers right now. Try adjusting your filters in the Find Care tab.",
+      );
+    } else {
+      const top2 = actionResults.providers.slice(0, 2);
+      const list = top2
+        .map((p: any) => `• ${p.name} (${p.metaString || p.speciality})`)
+        .join("\n");
+      parts.push(
+        `Here are the top matches:\n${list}\n\nLet me know which provider you'd like to check slots for.`,
+      );
+    }
+  }
+
+  if (Array.isArray(actionResults.available_slots)) {
+    const slotsText = actionResults.available_slots
+      .slice(0, 5)
+      .map((s: any) => `• ${s.displayDate}, ${s.displayTime}`)
+      .join("\n");
+    parts.push(
+      `Available slots:\n${slotsText}\n\nReply with the time you'd like to book.`,
+    );
+  } else if (actionResults.available_slots?.error) {
+    parts.push(actionResults.available_slots.error);
+  }
+
+  if (actionResults.appointment) {
+    parts.push(
+      actionResults.appointment.error
+        ? actionResults.appointment.error
+        : `Your appointment request for ${actionResults.appointment.displayDate} (${actionResults.appointment.displayTime}) has been submitted.`,
+    );
+  }
+
+  if (actionResults.mission?.title) {
+    parts.push(`Created care mission: "${actionResults.mission.title}".`);
+  }
+
+  if (Array.isArray(actionResults.tasks) && actionResults.tasks.length > 0) {
+    const taskList = actionResults.tasks
+      .map((t: any) => `• ${t.title}`)
+      .join("\n");
+    parts.push(`Added tasks:\n${taskList}`);
+  } else if (actionResults.tasks?.error) {
+    parts.push(actionResults.tasks.error);
+  }
+
+  if (actionResults.delegation) {
+    parts.push(
+      actionResults.delegation.error
+        ? actionResults.delegation.error
+        : `Assigned "${actionResults.delegation.task}" to ${actionResults.delegation.assigned_to}.`,
+    );
+  }
+
+  if (parts.length > 0) return parts.join("\n\n");
+
+  return (
+    "Our AI assistant is experiencing heavy traffic right now, but CareFlow's tools are still available:\n" +
+    "• Use Find Care on Home to search & book doctors\n" +
+    "• Use the Care tab to manage missions & tasks\n" +
+    "• Use Dietary Needs to scan or look up foods\n\n" +
+    "Please try asking again in a moment."
+  );
 }
