@@ -247,3 +247,92 @@ export async function removeUserPushToken(userId: string, expoPushToken: string)
 
   if (error) console.warn("Failed to remove push token:", error);
 }
+
+// ─── Notification Inbox (public.notifications) ───────────
+
+export type UserNotification = {
+  id: string;
+  user_id: string;
+  task_id: string | null;
+  appointment_id: string | null;
+  mission_id: string | null;
+  title: string;
+  body: string;
+  notification_type: string;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  read_at: string | null;
+  status: string;
+  created_at: string;
+};
+
+/** Fetch recent notifications for the signed-in user (caregiver alerts, reminders, etc.) */
+export async function fetchUserNotifications(
+  userId: string,
+  limit = 25,
+): Promise<UserNotification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []) as UserNotification[];
+}
+
+/** Mark a single notification as read */
+export async function markNotificationRead(notificationId: string): Promise<string> {
+  const readAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: readAt })
+    .eq("id", notificationId);
+
+  if (error) throw error;
+  return readAt;
+}
+
+/** Mark all unread notifications for the user as read */
+export async function markAllNotificationsRead(userId: string): Promise<string> {
+  const readAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: readAt })
+    .eq("user_id", userId)
+    .is("read_at", null);
+
+  if (error) throw error;
+  return readAt;
+}
+
+/** Remove all stored push tokens for a user when they opt out of push alerts */
+export async function removeAllUserPushTokens(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("user_push_tokens")
+    .delete()
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+/** Delete a single notification owned by the current user */
+export async function deleteUserNotification(notificationId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .eq("id", notificationId);
+
+  if (error) throw error;
+}
+
+/** Clear all notifications for the current user */
+export async function clearAllUserNotifications(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}

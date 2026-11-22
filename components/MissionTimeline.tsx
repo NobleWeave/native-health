@@ -10,13 +10,50 @@ export type MissionEvent = {
   actor: { full_name: string } | { full_name: string }[] | null;
 };
 
-const EVENT_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }> = {
-  MISSION_CREATED: { icon: "flag-outline", color: "#315C3E", label: "Mission Created" },
-  STATE_TRANSITION: { icon: "git-commit-outline", color: "#2563EB", label: "State Updated" },
-  TASK_ADDED: { icon: "add-circle-outline", color: "#718078", label: "Task Added" },
-  TASK_COMPLETED: { icon: "checkmark-done-outline", color: "#285C3B", label: "Task Completed" },
-  PROVIDER_SELECTED: { icon: "medical-outline", color: "#D97706", label: "Provider Selected" },
-  APPOINTMENT_BOOKED: { icon: "calendar-outline", color: "#059669", label: "Appointment Booked" },
+const EVENT_CONFIG: Record<
+  string,
+  { icon: keyof typeof Ionicons.glyphMap; color: string; label: string }
+> = {
+  MISSION_CREATED: {
+    icon: "flag-outline",
+    color: "#315C3E",
+    label: "Mission Created",
+  },
+  STATE_TRANSITION: {
+    icon: "git-commit-outline",
+    color: "#2563EB",
+    label: "State Updated",
+  },
+  TASK_ADDED: {
+    icon: "add-circle-outline",
+    color: "#718078",
+    label: "Task Added",
+  },
+  TASK_COMPLETED: {
+    icon: "checkmark-done-outline",
+    color: "#285C3B",
+    label: "Task Completed",
+  },
+  PROVIDER_SELECTED: {
+    icon: "medical-outline",
+    color: "#D97706",
+    label: "Provider Selected",
+  },
+  APPOINTMENT_BOOKED: {
+    icon: "calendar-outline",
+    color: "#059669",
+    label: "Appointment Booked",
+  },
+  TASK_ASSIGNED: {
+    label: "Task Assigned",
+    icon: "person-add-outline",
+    color: "#285C3B",
+  },
+  TASK_UNASSIGNED: {
+    label: "Task Unassigned",
+    icon: "person-remove-outline",
+    color: "#718078",
+  },
 };
 
 export function MissionTimeline({ events }: { events: MissionEvent[] }) {
@@ -43,6 +80,17 @@ export function MissionTimeline({ events }: { events: MissionEvent[] }) {
           ? event.actor[0]?.full_name
           : event.actor?.full_name;
 
+        if (
+          event.event_type === "TASK_ASSIGNED" &&
+          event.metadata?.task_title
+        ) {
+          return `Assigned "${event.metadata.task_title}"${
+            event.metadata.assignee_name
+              ? ` to ${event.metadata.assignee_name}`
+              : ""
+          }`;
+        }
+
         return (
           <View key={event.id} style={styles.eventRow}>
             {/* Timeline Line & Node */}
@@ -60,18 +108,17 @@ export function MissionTimeline({ events }: { events: MissionEvent[] }) {
                 <Text style={styles.timeText}>{date}</Text>
               </View>
 
-              <Text style={styles.actorText}>
-                By {actorName || "System"}
-              </Text>
+              <Text style={styles.actorText}>By {actorName || "System"}</Text>
 
               {/* Render Transition Details if available */}
-              {event.event_type === "STATE_TRANSITION" && event.metadata?.from && (
-                <View style={styles.metaBox}>
-                  <Text style={styles.metaText}>
-                    {event.metadata.from} ➔ {event.metadata.to}
-                  </Text>
-                </View>
-              )}
+              {event.event_type === "STATE_TRANSITION" &&
+                event.metadata?.from && (
+                  <View style={styles.metaBox}>
+                    <Text style={styles.metaText}>
+                      {event.metadata.from} ➔ {event.metadata.to}
+                    </Text>
+                  </View>
+                )}
             </View>
           </View>
         );

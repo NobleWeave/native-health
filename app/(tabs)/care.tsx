@@ -68,10 +68,12 @@ export default function CareScreen() {
     );
   };
 
-  const displayMyMissions = myMissions.filter((mission: any) => {
-    const tasks = mission.care_tasks || [];
-    return tasks.length === 0 || !tasks.every((t: any) => t.status === "completed");
-  });
+  const activeMyMissions = myMissions.filter(
+    (m) => m.status !== "completed" && m.status !== "cancelled",
+  );
+  const pastMyMissions = myMissions.filter(
+    (m) => m.status === "completed" || m.status === "cancelled",
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -118,6 +120,22 @@ export default function CareScreen() {
                     </View>
                   </View>
                   <Text style={styles.sub}>Patient: {mission.patient?.full_name}</Text>
+                  {consentRow.expires_at && (
+                    <Text style={styles.expiryTag}>
+                      Access until{" "}
+                      {new Date(consentRow.expires_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}{" "}
+                      ·{" "}
+                      {new Date(consentRow.expires_at).toLocaleTimeString("en-IN", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </Text>
+                  )}
                   <Text style={styles.progress}>{completed} / {total} tasks completed</Text>
                 </Pressable>
               );
@@ -176,10 +194,10 @@ export default function CareScreen() {
         </View>
         {loading ? (
           <ActivityIndicator color="#285C3B" style={{ marginTop: 10 }} />
-        ) : myMissions.length === 0 ? (
+        ) : activeMyMissions.length === 0 ? (
           <Text style={styles.emptyText}>You have no active missions.</Text>
         ) : (
-          myMissions.map((mission: any) => {
+          activeMyMissions.map((mission: any) => {
             const completed = mission.care_tasks?.filter((t: any) => t.status === "completed").length || 0;
             const total = mission.care_tasks?.length || 0;
 
@@ -201,6 +219,48 @@ export default function CareScreen() {
               </Pressable>
             );
           })
+        )}
+        {pastMyMissions.length > 0 && (
+          <View style={{ marginTop: 14 }}>
+            <Text style={styles.sectionTitle}>Past Missions</Text>
+            {pastMyMissions.map((mission) => {
+              const tasks = mission.care_tasks || [];
+              const completed = tasks.filter(
+                (t: any) => t.status === "completed",
+              ).length;
+              const isCancelled = mission.status === "cancelled";
+
+              return (
+                <Pressable
+                  key={mission.id}
+                  style={[styles.card, { opacity: 0.78 }]}
+                  onPress={() => router.push(`/mission/${mission.id}`)}
+                >
+                  <View style={styles.sharedHeader}>
+                    <Text style={styles.name}>{mission.title}</Text>
+                    <View
+                      style={[
+                        styles.badge,
+                        isCancelled ? { backgroundColor: "#FFEBEE" } : styles.badgeManage,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          isCancelled && { color: "#C62828" },
+                        ]}
+                      >
+                        {isCancelled ? "Cancelled" : "Completed"}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.progress}>
+                    {completed} / {tasks.length} tasks completed
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -232,4 +292,11 @@ const styles = StyleSheet.create({
   removeBtn: { padding: 8, backgroundColor: "#FFF7F7", borderRadius: 8, borderWidth: 1, borderColor: "#F5DADA" },
   sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   addText: { color: "#285C3B", fontWeight: "700", fontSize: 15 },
+  expiryTag: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#976A00",
+    marginTop: -14,
+    marginBottom: 8,
+  },
 });

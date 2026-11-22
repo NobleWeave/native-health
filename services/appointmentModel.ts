@@ -19,28 +19,60 @@ export async function fetchPatientAppointments(patientId: string) {
   return data || [];
 }
 
-/** Cancel a patient's appointment */
-export async function cancelAppointment(appointmentId: string) {
-  const { error } = await supabase
-    .from("appointments")
-    .update({ status: "cancelled" })
-    .eq("id", appointmentId);
+export async function bookAppointment(
+  _patientId: string,
+  providerId: string,
+  missionId: string | null,
+  scheduledAt: string,
+  slotId?: string,
+) {
+  const { data, error } = await supabase.rpc(
+    "book_appointment_and_lock_slot",
+    {
+      p_provider_id: providerId,
+      p_mission_id: missionId,
+      p_scheduled_at: scheduledAt,
+      p_slot_id: slotId ?? null,
+    },
+  );
 
   if (error) throw error;
-  return true;
+  return data;
 }
 
-/** Book a new appointment attached to a mission */
-export async function bookAppointment(patientId: string, providerId: string, missionId: string, scheduledAt: string) {
+export async function cancelAppointment(appointmentId: string) {
+  const { data, error } = await supabase.rpc(
+    "update_appointment_and_sync_slot",
+    {
+      p_appointment_id: appointmentId,
+      p_new_status: "cancelled",
+    },
+  );
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: string,
+) {
+  if (status === "cancelled" || status === "rejected" || status === "waitlisted") {
+    const { data, error } = await supabase.rpc(
+      "update_appointment_and_sync_slot",
+      {
+        p_appointment_id: appointmentId,
+        p_new_status: status,
+      },
+    );
+    if (error) throw error;
+    return data;
+  }
+
   const { data, error } = await supabase
     .from("appointments")
-    .insert({
-      patient_id: patientId,
-      provider_id: providerId,
-      mission_id: missionId,
-      scheduled_at: scheduledAt,
-      status: "requested"
-    })
+    .update({ status })
+    .eq("id", appointmentId)
     .select()
     .single();
 
@@ -75,17 +107,6 @@ export async function fetchProviderAppointments(providerId: string) {
 
   if (error) throw error;
   return data || [];
-}
-
-/** Update the status of an appointment */
-export async function updateAppointmentStatus(appointmentId: string, newStatus: string) {
-  const { error } = await supabase
-    .from("appointments")
-    .update({ status: newStatus })
-    .eq("id", appointmentId);
-
-  if (error) throw error;
-  return true;
 }
 
 /** Get provider dashboard stats: pending requests count and today's approved count */

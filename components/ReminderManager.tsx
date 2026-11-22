@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase/client";
 import {
+  getPushOptInPreference,
   presentLocalReminderNotification,
   registerForPushNotificationsAsync,
 } from "../services/notifications";
@@ -85,9 +86,12 @@ export function ReminderManager() {
     let active = true;
 
     // 1. Register push token & Android channel
-    registerForPushNotificationsAsync(user.id)
-      .then(({ token }) => {
-        if (active) pushTokenRef.current = token;
+    getPushOptInPreference(user.id)
+      .then((optedIn) => {
+        if (!active || !optedIn) return;
+        return registerForPushNotificationsAsync(user.id).then(({ token }) => {
+          if (active) pushTokenRef.current = token;
+        });
       })
       .catch((err) => console.warn("Push registration error:", err));
 
@@ -156,13 +160,16 @@ export function ReminderManager() {
 
           if (row.notification_type !== "task_reminder") return;
 
-          if (!pushTokenRef.current && row.title && row.body) {
-            void presentLocalReminderNotification(row.title, row.body, {
-              type: "task_reminder",
-              taskId: row.task_id ?? undefined,
-              missionId: row.mission_id ?? undefined,
-            });
-          }
+          void (async () => {
+            const optedIn = await getPushOptInPreference(user.id);
+            if (optedIn && !pushTokenRef.current && row.title && row.body) {
+              await presentLocalReminderNotification(row.title, row.body, {
+                type: "task_reminder",
+                taskId: row.task_id ?? undefined,
+                missionId: row.mission_id ?? undefined,
+              });
+            }
+          })();
 
           void syncRingingReminders(true);
         },

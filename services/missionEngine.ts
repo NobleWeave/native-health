@@ -243,3 +243,98 @@ export async function advanceMissionToProviderSelected(
     console.warn("Mission state transition to provider_selected skipped:", err);
   }
 }
+
+// export interface BookableMission {
+//   id: string;
+//   title: string;
+//   status: MissionState;
+//   patient_id: string;
+//   isShared: boolean;
+//   patientName: string | null;
+// }
+
+// /**
+//  * Returns active missions a user can book appointments for:
+//  * 1) Their own non-terminal missions
+//  * 2) Non-terminal shared missions where they hold active `manage` consent
+//  */
+// export async function getBookableMissionsForUser(
+//   userId: string,
+// ): Promise<BookableMission[]> {
+//   const nowIso = new Date().toISOString();
+
+//   const [ownRes, sharedRes] = await Promise.all([
+//     supabase
+//       .from("care_missions")
+//       .select("id, title, status, patient_id")
+//       .eq("patient_id", userId)
+//       .not("status", "in", "(completed,cancelled)")
+//       .order("created_at", { ascending: false }),
+
+//     supabase
+//       .from("consents")
+//       .select(`
+//         permissions,
+//         expires_at,
+//         mission:care_missions!mission_id (
+//           id,
+//           title,
+//           status,
+//           patient_id,
+//           patient:profiles!patient_id(full_name)
+//         )
+//       `)
+//       .eq("caregiver_id", userId)
+//       .is("revoked_at", null)
+//       .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+//   ]);
+
+//   if (ownRes.error) throw ownRes.error;
+//   if (sharedRes.error) {
+//     console.warn("Could not load shared bookable missions:", sharedRes.error);
+//   }
+
+//   const seen = new Set<string>();
+//   const results: BookableMission[] = [];
+
+//   for (const m of ownRes.data || []) {
+//     seen.add(m.id);
+//     results.push({
+//       id: m.id,
+//       title: m.title,
+//       status: m.status as MissionState,
+//       patient_id: m.patient_id,
+//       isShared: false,
+//       patientName: null,
+//     });
+//   }
+
+//   const nowMs = Date.now();
+//   for (const row of sharedRes.data || []) {
+//     const perms = row.permissions as { manage?: boolean } | null;
+//     if (!perms?.manage) continue;
+//     if (row.expires_at && new Date(row.expires_at).getTime() <= nowMs) continue;
+
+//     const mission = Array.isArray(row.mission) ? row.mission[0] : row.mission;
+//     if (!mission || seen.has(mission.id)) continue;
+//     if (mission.status === "completed" || mission.status === "cancelled") {
+//       continue;
+//     }
+
+//     const patientRel = Array.isArray(mission.patient)
+//       ? mission.patient[0]
+//       : mission.patient;
+
+//     seen.add(mission.id);
+//     results.push({
+//       id: mission.id,
+//       title: mission.title,
+//       status: mission.status as MissionState,
+//       patient_id: mission.patient_id,
+//       isShared: true,
+//       patientName: patientRel?.full_name || "Patient",
+//     });
+//   }
+
+//   return results;
+// }

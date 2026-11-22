@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import {
   searchNutrition,
@@ -35,6 +36,33 @@ function nutrientText(
 ) {
   if (!item) return "Not available";
   return `${item.value} ${item.unit}`.trim();
+}
+
+function buildPackagedFoodPrompt(product: PackagedFood): string {
+  const lines = [
+    "Please evaluate if this scanned packaged food is suitable for my health conditions, allergies, and medications:",
+    `Product: ${product.name}${product.brand ? ` (${product.brand})` : ""}`,
+    `Barcode: ${product.barcode}`,
+    `Nutrition (per 100g): Calories: ${product.calories ?? "N/A"} kcal, Protein: ${product.protein ?? "N/A"} g, Carbs: ${product.carbohydrates ?? "N/A"} g, Fat: ${product.fat ?? "N/A"} g, Fiber: ${product.fiber ?? "N/A"} g`,
+  ];
+
+  if (product.ingredients) {
+    const trimmedIngredients =
+      product.ingredients.length > 600
+        ? `${product.ingredients.slice(0, 600)}...`
+        : product.ingredients;
+    lines.push(`Ingredients: ${trimmedIngredients}`);
+  }
+
+  return lines.join("\n");
+}
+
+function buildUsdaFoodPrompt(food: NutritionFood): string {
+  return [
+    "Please evaluate if this food is suitable for my health conditions, allergies, and medications:",
+    `Food: ${food.name} (${food.category})`,
+    `Nutrition: Energy: ${nutrientText(food.calories)}, Protein: ${nutrientText(food.protein)}, Carbs: ${nutrientText(food.carbohydrates)}, Fat: ${nutrientText(food.fat)}, Fiber: ${nutrientText(food.fiber)}`,
+  ].join("\n");
 }
 
 export default function DietaryNeedsScreen() {
@@ -149,6 +177,16 @@ export default function DietaryNeedsScreen() {
     setSelectedProduct(null);
     setSearched(false);
     setError("");
+  }
+
+  function evaluateWithAssistant(prompt: string) {
+    router.push({
+      pathname: "/(tabs)/assistant",
+      params: {
+        evaluatePrompt: prompt,
+        evaluationKey: String(Date.now()),
+      },
+    });
   }
 
   return (
@@ -307,6 +345,21 @@ export default function DietaryNeedsScreen() {
                 </Text>
               </View>
             </View>
+            <Pressable
+              style={styles.evaluateButton}
+              onPress={() =>
+                evaluateWithAssistant(buildUsdaFoodPrompt(selectedFood))
+              }
+            >
+              <Ionicons
+                name="sparkles-outline"
+                size={18}
+                color="#FFFFFF"
+              />
+              <Text style={styles.evaluateButtonText}>
+                Evaluate for My Health Profile
+              </Text>
+            </Pressable>
 
             <Text style={styles.sectionTitle}>Nutrition facts</Text>
             {[
@@ -365,6 +418,21 @@ export default function DietaryNeedsScreen() {
                 </Text>
               </View>
             </View>
+            <Pressable
+              style={styles.evaluateButton}
+              onPress={() =>
+                evaluateWithAssistant(buildPackagedFoodPrompt(selectedProduct))
+              }
+            >
+              <Ionicons
+                name="sparkles-outline"
+                size={18}
+                color="#FFFFFF"
+              />
+              <Text style={styles.evaluateButtonText}>
+                Evaluate for My Health Profile
+              </Text>
+            </Pressable>
 
             <Text style={styles.sectionTitle}>Nutrition facts</Text>
             {[
@@ -629,5 +697,21 @@ const styles = StyleSheet.create({
     color: "#87918A",
     textAlign: "center",
     marginTop: 28,
+  },
+  evaluateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#285C3B",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 22,
+  },
+  evaluateButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

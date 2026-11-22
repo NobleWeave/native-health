@@ -27,6 +27,28 @@ const TRANSITION_BUTTON_LABELS: Partial<Record<MissionState, string>> = {
   completed: "Complete Mission",
 };
 
+const CONSENT_EXPIRY_OPTIONS = [
+  { label: "No expiry", hours: null },
+  { label: "1 hour", hours: 1 },
+  { label: "24 hours", hours: 24 },
+  { label: "7 days", hours: 24 * 7 },
+  { label: "30 days", hours: 24 * 30 },
+] as const;
+
+function formatConsentExpiry(expiresAt?: string | null): string {
+  if (!expiresAt) return "No expiry";
+  const d = new Date(expiresAt);
+  if (Number.isNaN(d.getTime())) return "No expiry";
+  return `Expires ${d.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  })}, ${d.toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })}`;
+}
+
 export default function MissionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -42,6 +64,7 @@ export default function MissionDetailsScreen() {
 
   // UI States
   const [showSharePanel, setShowSharePanel] = useState(false);
+  const [selectedExpiryHours, setSelectedExpiryHours] = useState<number | null>(null);
   const [assigningTask, setAssigningTask] = useState<{id: string, title: string, assignee: string | null} | null>(null);
   const [reminderTask, setReminderTask] = useState<{ id: string; title: string } | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -104,9 +127,17 @@ export default function MissionDetailsScreen() {
     try {
       console.log(`Sharing mission ${mission.id} with caregiver ${caregiverId} at level ${level}`);
       const permissions = { view: true, manage: level === "manage" };
-      await grantConsent(mission.patient_id, caregiverId, permissions, mission.id);
-      Alert.alert("Success", "Mission shared successfully.");
+      const expiresAt = selectedExpiryHours
+        ? new Date(
+            Date.now() + selectedExpiryHours * 60 * 60 * 1000,
+          ).toISOString()
+        : null;
+      await grantConsent(mission.patient_id, caregiverId, permissions, mission.id, expiresAt);
+      Alert.alert("Success", expiresAt
+          ? `Mission shared (${formatConsentExpiry(expiresAt)}).`
+          : "Mission shared with no expiration.",);
       setShowSharePanel(false);
+      setSelectedExpiryHours(null);
       loadMissionData();
     } catch (error) {
       Alert.alert("Error", "Could not share mission.");
@@ -298,40 +329,97 @@ export default function MissionDetailsScreen() {
         </View>
 
         {/* Share Panel (Patient Only) */}
+        {/* Share Panel (Patient Only) */}
         {showSharePanel && isPatient && (
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Share Mission Access</Text>
+
+            <Text style={styles.expiryLabel}>Access Duration (for new shares)</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.expiryChipRow}
+            >
+              {CONSENT_EXPIRY_OPTIONS.map((opt) => {
+                const isSelected = selectedExpiryHours === opt.hours;
+                return (
+                  <Pressable
+                    key={opt.label}
+                    style={[
+                      styles.expiryChip,
+                      isSelected && styles.expiryChipActive,
+                    ]}
+                    onPress={() => setSelectedExpiryHours(opt.hours)}
+                  >
+                    <Text
+                      style={[
+                        styles.expiryChipText,
+                        isSelected && styles.expiryChipTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
             {caregivers.length === 0 ? (
               <Text style={styles.sub}>No caregivers in your circle.</Text>
             ) : (
               caregivers.map((cg) => {
-                const existing = consents.find(c => c.caregiver.id === cg.caregiver.id);
+                const existing = consents.find(
+                  (c) => c.caregiver?.id === cg.caregiver?.id,
+                );
                 return (
                   <View key={cg.id} style={styles.cgOption}>
-                    <Text style={styles.cgOptionText}>{cg.caregiver?.full_name}, {cg.relationship ? ` (${cg.relationship})` : ""}</Text>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.cgOptionText}>
+                        {cg.caregiver?.full_name}
+                        {cg.relationship ? ` (${cg.relationship})` : ""}
+                      </Text>
+                      {existing && (
+                        <Text style={styles.existingExpiryText}>
+                          {existing.permissions?.manage ? "Manager" : "Viewer"} ·{" "}
+                          {formatConsentExpiry(existing.expires_at)}
+                        </Text>
+                      )}
+                    </View>
+
                     {existing ? (
-                      /* NEW: Show current role and Revoke button */
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Text style={styles.existingText}>{existing.permissions?.manage ? "Manager" : "Viewer"}</Text>
-                        <Pressable
-                          style={styles.miniBtnDanger}
-                          onPress={() => handleRevokeConsent(cg.caregiver.id, cg.caregiver.full_name)}
-                        >
-                          <Text style={styles.miniBtnDangerText}>Revoke</Text>
-                        </Pressable>
-                      </View>
+                      <Pressable
+                        style={styles.miniBtnDanger}
+                        onPress={() =>
+                          handleRevokeConsent(
+                            cg.caregiver.id,
+                            cg.caregiver.full_name,
+                          )
+                        }
+                      >
+                        <Text style={styles.miniBtnDangerText}>Revoke</Text>
+                      </Pressable>
                     ) : (
                       <View style={{ flexDirection: "row", gap: 8 }}>
-                        <Pressable style={styles.miniBtn} onPress={() => handleShareMission(cg.caregiver.id, "view")}>
+                        <Pressable
+                          style={styles.miniBtn}
+                          onPress={() =>
+                            handleShareMission(cg.caregiver.id, "view")
+                          }
+                        >
                           <Text style={styles.miniBtnText}>Can View</Text>
                         </Pressable>
-                        <Pressable style={styles.miniBtn} onPress={() => handleShareMission(cg.caregiver.id, "manage")}>
+                        <Pressable
+                          style={styles.miniBtn}
+                          onPress={() =>
+                            handleShareMission(cg.caregiver.id, "manage")
+                          }
+                        >
                           <Text style={styles.miniBtnText}>Can Manage</Text>
                         </Pressable>
                       </View>
                     )}
                   </View>
-                )
+                );
               })
             )}
           </View>
@@ -457,7 +545,7 @@ export default function MissionDetailsScreen() {
                     assigneeName={assigneeName}
                     onPress={canManage ? () => handleToggleTask(task.id, task.status) : undefined}
                     onSetReminder={canManage ? () => setReminderTask({ id: task.id, title: task.title }) : undefined}
-                    onAssign={canManage ? () => setAssigningTask({id: task.id, title: task.title, assignee: task.assigned_to}) : undefined}
+                    onAssign={isPatient && canEditMission ? () => setAssigningTask({id: task.id, title: task.title, assignee: task.assigned_to}) : undefined}
                   />
                 )
               })
@@ -559,5 +647,42 @@ const styles = StyleSheet.create({
     color: "#C0392B",
     fontSize: 13,
     fontWeight: "700",
+  },
+  expiryLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#52615A",
+    marginBottom: 8,
+  },
+  expiryChipRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 14,
+  },
+  expiryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: "#F7F8F6",
+    borderWidth: 1,
+    borderColor: "#E4E8E4",
+  },
+  expiryChipActive: {
+    backgroundColor: "#285C3B",
+    borderColor: "#285C3B",
+  },
+  expiryChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#52615A",
+  },
+  expiryChipTextActive: {
+    color: "#FFFFFF",
+  },
+  existingExpiryText: {
+    fontSize: 11,
+    color: "#718078",
+    marginTop: 2,
+    marginLeft: 8,
   },
 });

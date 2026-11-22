@@ -3,8 +3,8 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { saveUserPushToken } from "./reminderModel";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { removeAllUserPushTokens, saveUserPushToken } from "./reminderModel";
 export const REMINDER_CHANNEL_ID = "careflow-reminders";
 
 // Ensure notifications still show banner + sound while app is in foreground
@@ -110,4 +110,46 @@ export async function presentLocalReminderNotification(
     },
     trigger: null,
   });
+}
+
+const PUSH_OPT_IN_KEY_PREFIX = "@careflow_push_opt_in:";
+
+/**
+ * Returns whether the user has opted in to push/local reminder notifications.
+ * Defaults to true until explicitly toggled off.
+ */
+export async function getPushOptInPreference(userId: string): Promise<boolean> {
+  try {
+    const stored = await AsyncStorage.getItem(`${PUSH_OPT_IN_KEY_PREFIX}${userId}`);
+    if (stored === null) return true;
+    return stored === "true";
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Toggles push notification opt-in:
+ * - ON: requests permission, registers push token (when supported), saves "true".
+ * - OFF: deletes user's stored push tokens from Supabase, saves "false".
+ */
+export async function setPushOptInPreference(
+  userId: string,
+  enabled: boolean,
+): Promise<{ enabled: boolean; permissionDenied?: boolean }> {
+  const key = `${PUSH_OPT_IN_KEY_PREFIX}${userId}`;
+
+  if (enabled) {
+    const { permissionGranted } = await registerForPushNotificationsAsync(userId);
+    if (!permissionGranted) {
+      await AsyncStorage.setItem(key, "false");
+      return { enabled: false, permissionDenied: true };
+    }
+    await AsyncStorage.setItem(key, "true");
+    return { enabled: true };
+  }
+
+  await AsyncStorage.setItem(key, "false");
+  await removeAllUserPushTokens(userId);
+  return { enabled: false };
 }

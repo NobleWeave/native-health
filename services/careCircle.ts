@@ -1,21 +1,78 @@
 import { supabase } from "./supabase/client";
 
-export async function inviteCaregiver(patientId: string, caregiverEmail: string, relationship: string) {
+export async function inviteCaregiver(
+  patientId: string,
+  caregiverEmail: string,
+  relationship: string,
+) {
   // 1. Look up caregiver profile ID by email
-  const { data: profile, error: profileError } = await supabase.from("profiles").select("id").eq("email", caregiverEmail.toLowerCase()).single();
-  // console.log("Profile lookup result:", profile, profileError);
-  if (profileError || !profile) throw new Error("User not found");
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", caregiverEmail.trim().toLowerCase())
+    .single();
 
-  // 2. Create pending relationship
-  const { data, error } = await supabase.from("caregivers").insert({
-    patient_id: patientId,
-    caregiver_id: profile.id,
-    relationship,
-    status: "pending"
-  });
-  console.log("Caregiver relationship creation result:", data, error);
+  if (profileError || !profile) {
+    throw new Error("User not found");
+  }
 
-  if (error) throw new Error("Failed to create caregiver relationship.");
+  if (profile.id === patientId) {
+    throw new Error("You cannot invite yourself as a caregiver.");
+  }
+
+  // 2. Check if a relationship row already exists for this patient + caregiver
+  const { data: existing, error: existingError } = await supabase
+    .from("caregivers")
+    .select("id, status")
+    .eq("patient_id", patientId)
+    .eq("caregiver_id", profile.id)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error("Failed to check existing caregiver relationship.");
+  }
+
+  if (existing) {
+    if (existing.status === "active") {
+      throw new Error("This user is already in your Care Circle.");
+    }
+    if (existing.status === "pending") {
+      throw new Error("An invitation is already pending for this user.");
+    }
+
+    // Re-invite a previously revoked caregiver by resetting the row to pending
+    const { data, error } = await supabase
+      .from("caregivers")
+      .update({
+        relationship,
+        status: "pending",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(error.message || "Failed to re-invite caregiver.");
+    }
+    return data;
+  }
+
+  // 3. No prior row — create a new pending relationship
+  const { data, error } = await supabase
+    .from("caregivers")
+    .insert({
+      patient_id: patientId,
+      caregiver_id: profile.id,
+      relationship,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message || "Failed to create caregiver relationship.");
+  }
   return data;
 }
 
@@ -37,19 +94,40 @@ export async function getActiveCaregivers(patientId: string) {
   return data;
 }
 
-export async function grantConsent(patientId: string, caregiverId: string, permissions: object, missionId?: string) {
+export async function grantConsent(
+  patientId: string,
+  caregiverId: string,
+  permissions: object,
+  missionId?: string,
+  expiresAt?: string | null,
+) {
+  const nowIso = new Date().toISOString();
+
+  // Close out any prior unrevoked (including expired) row for this caregiver + mission
+  if (missionId) {
+    await supabase
+      .from("consents")
+      .update({
+        revoked_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("patient_id", patientId)
+      .eq("caregiver_id", caregiverId)
+      .eq("mission_id", missionId)
+      .is("revoked_at", null);
+  }
+
   const { data, error } = await supabase
     .from("consents")
     .insert({
       patient_id: patientId,
       caregiver_id: caregiverId,
       mission_id: missionId || null,
-      permissions
+      permissions,
+      expires_at: expiresAt ?? null,
     })
     .select()
     .single();
-  
-  console.log("Grant consent result:", data, error);
 
   if (error) throw error;
   return data;
@@ -94,13 +172,16 @@ export async function declineCaregiverInvitation(invitationId: string) {
   if (error) throw error;
 }
 
-// Fetch missions shared with the caregiver
+// Fetch active, non-expired missions shared with the caregiver
 export async function getSharedMissions(caregiverId: string) {
+  const nowIso = new Date().toISOString();
+
   const { data, error } = await supabase
     .from("consents")
     .select(`
       permissions,
       mission_id,
+      expires_at,
       mission:care_missions!mission_id (
         id, title, status, patient_id,
         patient:profiles!patient_id(full_name),
@@ -108,18 +189,25 @@ export async function getSharedMissions(caregiverId: string) {
       )
     `)
     .eq("caregiver_id", caregiverId)
-    .is("revoked_at", null);
-
-  console.log("Shared missions for caregiver:", data, error);
+    .is("revoked_at", null)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
   if (error) throw error;
-  
-  // Filter out any consents where the mission itself might have been deleted
-  return (data || []).filter((row) => row.mission !== null);
+
+  const nowMs = Date.now();
+  return (data || []).filter((row: any) => {
+    if (!row.mission) return false;
+    if (row.expires_at && new Date(row.expires_at).getTime() <= nowMs) {
+      return false;
+    }
+    return true;
+  });
 }
 
-// Fetch all active consents for a specific mission (used by the Patient to see who has access)
+// Fetch all active, non-expired consents for a specific mission
 export async function getMissionConsents(missionId: string) {
+  const nowIso = new Date().toISOString();
+
   const { data, error } = await supabase
     .from("consents")
     .select(`
@@ -133,10 +221,11 @@ export async function getMissionConsents(missionId: string) {
       caregiver:profiles!caregiver_id(id, full_name)
     `)
     .eq("mission_id", missionId)
-    .is("revoked_at", null);
+    .is("revoked_at", null)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 // Revoke a caregiver's access to a specific mission

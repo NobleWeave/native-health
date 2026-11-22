@@ -36,7 +36,19 @@ const defaultMessage = {
 
 export default function AssistantScreen() {
   const { user, location } = useAuth();
-  const { missionId } = useLocalSearchParams<{ missionId?: string }>();
+  const { missionId, evaluatePrompt, evaluationKey } = useLocalSearchParams<{ 
+    missionId?: string | string[];
+    evaluatePrompt?: string | string[];
+    evaluationKey?: string | string[];
+   }>();
+  
+  const resolvedMissionId = Array.isArray(missionId) ? missionId[0] : missionId;
+  const resolvedEvaluatePrompt = Array.isArray(evaluatePrompt)
+    ? evaluatePrompt[0]
+    : evaluatePrompt;
+  const resolvedEvaluationKey = Array.isArray(evaluationKey)
+    ? evaluationKey[0]
+    : evaluationKey;
 
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ role: string; content: string }[]>(
@@ -60,6 +72,11 @@ export default function AssistantScreen() {
   const conversationIdRef = useRef<string | null>(null);
 
   const initializedMissionId = useRef<string | null>(null);
+  const handledEvaluationKey = useRef<string | null>(null);
+  const locationRef = useRef(location);
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
@@ -87,20 +104,72 @@ export default function AssistantScreen() {
       if (!user) return;
       await loadHistory();
 
-      if (missionId && initializedMissionId.current !== missionId) {
-        initializedMissionId.current = missionId;
+      // 1. Scanned / Searched Food Evaluation handoff from Dietary Needs
+      if (
+        resolvedEvaluatePrompt &&
+        resolvedEvaluationKey &&
+        handledEvaluationKey.current !== resolvedEvaluationKey
+      ) {
+        handledEvaluationKey.current = resolvedEvaluationKey;
+        router.setParams({
+          evaluatePrompt: undefined,
+          evaluationKey: undefined,
+        });
+
+        setIsMenuOpen(false);
+        setMessages([{ role: "user", content: resolvedEvaluatePrompt }]);
+        setLoading(true);
+
+        const userLocation = locationRef.current || { lat: 23.83, lng: 91.28 };
+
         try {
-          // A. Create a dedicated chat for this mission
+          const newConv = await createNewConversation(
+            user.id,
+            resolvedEvaluatePrompt,
+          );
+          updateConversationId(newConv.id);
+          void loadHistory();
+
+          const reply = await sendMessageToAssistant(
+            user.id,
+            newConv.id,
+            resolvedEvaluatePrompt,
+            userLocation,
+          );
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: reply },
+          ]);
+        } catch (error) {
+          console.error("Food evaluation handoff failed:", error);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content:
+                "I couldn't evaluate that food right now. Please try again in a moment.",
+            },
+          ]);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // 2. Mission-scoped Chat handoff
+      if (
+        resolvedMissionId &&
+        initializedMissionId.current !== resolvedMissionId
+      ) {
+        initializedMissionId.current = resolvedMissionId;
+        try {
           const newConv = await createNewConversation(
             user.id,
             "Discussing Care Mission",
           );
-
-          // B. Inject the mission into the database context instantly
-          await setActiveMissionForConversation(newConv.id, missionId);
+          await setActiveMissionForConversation(newConv.id, resolvedMissionId);
           updateConversationId(newConv.id);
 
-          // C. Set a context-aware greeting
           setMessages([
             {
               role: "assistant",
@@ -109,22 +178,31 @@ export default function AssistantScreen() {
             },
           ]);
 
-          await loadHistory(); // Refresh sidebar title
-
-          // D. Clear the param so hitting "New Chat" later works normally
+          await loadHistory();
           router.setParams({ missionId: undefined });
         } catch (error) {
           console.error("Failed to load mission context", error);
           handleStartNewChat();
         }
-      } else if (!missionId && !conversationIdRef.current) {
-        // Only start a blank chat if we aren't currently viewing one
+      } else if (
+        !resolvedMissionId &&
+        !resolvedEvaluatePrompt &&
+        !conversationIdRef.current
+      ) {
         handleStartNewChat();
       }
     }
 
     void initChat();
-  }, [handleStartNewChat, loadHistory, missionId, updateConversationId, user]);
+  }, [
+    handleStartNewChat,
+    loadHistory,
+    resolvedEvaluatePrompt,
+    resolvedEvaluationKey,
+    resolvedMissionId,
+    updateConversationId,
+    user,
+  ]);
 
   const handleSelectConversation = async (id: string) => {
     updateConversationId(id);

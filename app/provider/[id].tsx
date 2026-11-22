@@ -60,9 +60,12 @@ export default function ProviderDetailsScreen() {
 
     setBooking(true);
     try {
-      await bookAppointment(user.id, provider.id, missionId, selectedSlot.start_time);
+      await bookAppointment(user.id, provider.id, missionId, selectedSlot.start_time, selectedSlot.id);
       await advanceMissionToProviderSelected(missionId, user.id);
 
+      setSlots((prev) => prev.filter((s) => s.id !== selectedSlot.id));
+      setSelectedSlot(null);
+      
       Alert.alert(
         "Booking Requested",
         "Your appointment request has been sent to the provider.",

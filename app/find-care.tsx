@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import {
-  StyleSheet, Text, View, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -15,6 +23,8 @@ export default function FindCareScreen() {
   const [maxDistance, setMaxDistance] = useState("10");
   const [language, setLanguage] = useState("Bengali");
   const [scheme, setScheme] = useState("PM-JAY");
+  const [providerType, setProviderType] = useState("");
+  const [accessibility, setAccessibility] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
@@ -26,32 +36,47 @@ export default function FindCareScreen() {
     setHasSearched(true);
     setLocationStatus("Searching providers...");
 
-    const userLat = location?.lat || 23.83; // Fallback latitude
-    const userLng = location?.lng || 91.28; // Fallback longitude
+    const userLat = location?.lat || 23.83;
+    const userLng = location?.lng || 91.28;
 
     const constraints = {
       speciality: speciality.trim(),
-      maxCost: parseInt(maxCost) || 1000,
-      maxDistance: parseInt(maxDistance) || 20,
+      maxCost: parseInt(maxCost, 10) || 1000,
+      maxDistance: parseInt(maxDistance, 10) || 20,
       language: language.trim(),
       scheme: scheme.trim(),
+      providerType: providerType.trim(),
+      accessibility: accessibility.trim(),
       location: { lat: userLat, lng: userLng },
     };
 
-    const providers = await findAndRankCare(constraints);
-    setResults(providers);
-    setLoading(false);
-    setLocationStatus("");
+    try {
+      const providers = await findAndRankCare(constraints);
+      setResults(providers);
+    } finally {
+      setLoading(false);
+      setLocationStatus("");
+    }
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.header}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Text style={styles.backText}>‹ Back</Text>
+            </Pressable>
             <Text style={styles.title}>Find care</Text>
-            <Text style={styles.sub}>Matched to your needs, budget, and constraints.</Text>
+            <Text style={styles.sub}>
+              Matched to your needs, budget, and constraints.
+            </Text>
           </View>
 
           {/* Search Constraints Form */}
@@ -59,31 +84,90 @@ export default function FindCareScreen() {
             <View style={styles.row}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Speciality</Text>
-                <TextInput style={styles.input} value={speciality} onChangeText={setSpeciality} placeholder="e.g. Orthopaedics" />
+                <TextInput
+                  style={styles.input}
+                  value={speciality}
+                  onChangeText={setSpeciality}
+                  placeholder="e.g. Orthopaedics"
+                  placeholderTextColor="#94A3B8"
+                />
               </View>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Max Cost (₹)</Text>
-                <TextInput style={styles.input} value={maxCost} onChangeText={setMaxCost} keyboardType="numeric" />
+                <TextInput
+                  style={styles.input}
+                  value={maxCost}
+                  onChangeText={setMaxCost}
+                  keyboardType="numeric"
+                  placeholder="e.g. 500"
+                  placeholderTextColor="#94A3B8"
+                />
               </View>
             </View>
 
             <View style={styles.row}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Distance (km)</Text>
-                <TextInput style={styles.input} value={maxDistance} onChangeText={setMaxDistance} keyboardType="numeric" />
+                <TextInput
+                  style={styles.input}
+                  value={maxDistance}
+                  onChangeText={setMaxDistance}
+                  keyboardType="numeric"
+                  placeholder="e.g. 10"
+                  placeholderTextColor="#94A3B8"
+                />
               </View>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Language</Text>
-                <TextInput style={styles.input} value={language} onChangeText={setLanguage} placeholder="e.g. Bengali" />
+                <TextInput
+                  style={styles.input}
+                  value={language}
+                  onChangeText={setLanguage}
+                  placeholder="e.g. Bengali"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Health Scheme</Text>
+                <TextInput
+                  style={styles.input}
+                  value={scheme}
+                  onChangeText={setScheme}
+                  placeholder="e.g. PM-JAY"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Provider Type</Text>
+                <TextInput
+                  style={styles.input}
+                  value={providerType}
+                  onChangeText={setProviderType}
+                  placeholder="Doctor, Clinic..."
+                  placeholderTextColor="#94A3B8"
+                />
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Health Scheme</Text>
-              <TextInput style={styles.input} value={scheme} onChangeText={setScheme} placeholder="e.g. PM-JAY" />
+              <Text style={styles.label}>Accessibility (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={accessibility}
+                onChangeText={setAccessibility}
+                placeholder="e.g. Wheelchair ramp, Elevator"
+                placeholderTextColor="#94A3B8"
+              />
             </View>
 
-            <Pressable style={styles.searchButton} onPress={handleSearch} disabled={loading}>
+            <Pressable
+              style={styles.searchButton}
+              onPress={handleSearch}
+              disabled={loading}
+            >
               {loading ? (
                 <View style={styles.loadingRow}>
                   <ActivityIndicator color="white" />
@@ -99,7 +183,9 @@ export default function FindCareScreen() {
           {hasSearched && !loading && (
             <View style={styles.resultsContainer}>
               <Text style={styles.sectionTitle}>
-                {results.length > 0 ? `Top Matches (${results.length})` : "No providers found"}
+                {results.length > 0
+                  ? `Top Matches (${results.length})`
+                  : "No providers found"}
               </Text>
 
               {results.map((provider) => (
@@ -108,12 +194,16 @@ export default function FindCareScreen() {
                   name={provider.name}
                   meta={`${provider.metaString} · ${(provider.score * 100).toFixed(0)}% Match`}
                   reason={provider.reasonsString || provider.speciality}
-                  onPress={() => router.push({ pathname: "/provider/[id]", params: { id: provider.id } })}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/provider/[id]",
+                      params: { id: provider.id },
+                    })
+                  }
                 />
               ))}
             </View>
           )}
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -124,6 +214,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F7F8F6" },
   container: { padding: 20, paddingBottom: 40 },
   header: { marginBottom: 20 },
+  backButton: { marginBottom: 10 },
+  backText: { color: "#285C3B", fontSize: 16, fontWeight: "600" },
   title: { fontSize: 26, fontWeight: "700", color: "#17201B" },
   sub: { color: "#718078", marginTop: 5 },
 
@@ -163,5 +255,10 @@ const styles = StyleSheet.create({
   loadingText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
 
   resultsContainer: { marginTop: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#17201B", marginBottom: 16 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#17201B",
+    marginBottom: 16,
+  },
 });

@@ -127,8 +127,7 @@ You provide empathetic, structured, and strictly educational advice.
    - Step 1 (Validate): Empathetically acknowledge their concern.
    - Step 2 (First-Aid/Remedies): Provide 2-3 safe, actionable home remedies or observational trials (e.g., the RICE method for joints, mild shampoos for hair fall).
    - Step 3 (Professional Care): Explicitly advise them that if the symptom persists, they should use CareFlow to search for a specialist (name the exact speciality they should search for, e.g., "orthopaedics" or "dermatology").
-3. DIETARY EVALUATION: If the user asks about food AND their 'User Conditions' are provided in the context, evaluate the food strictly against those conditions (e.g., if they have diabetes, immediately evaluate the sugar/carb content).
-
+3. DIETARY EVALUATION: If the user asks about a named or scanned food AND their health profile is provided, evaluate the nutrition facts and ingredients strictly against their 'User Conditions', 'User Allergies', and 'User Medications'. Start with a clear suitability verdict (Suitable / Use Caution / Avoid), explicitly flag any allergen or condition triggers (e.g., high carbs/sugar for diabetes, allergens in the ingredient list), and remind them this is educational guidance rather than a clinical prescription.
 Keep your responses organized with bullet points, highly scannable, and under 150 words.`;
 
 const RESPONSE_PROMPT = `You are the final CareFlow Assistant response generator.
@@ -233,10 +232,16 @@ export async function processChatMessage(
     if (intents.includes("EVALUATE_FOOD")) {
       const { data: healthProfile } = await supabase
         .from("patient_health_profiles")
-        .select("conditions, allergies")
+        .select("conditions, allergies, medications")
         .eq("patient_id", userId)
-        .single();
-      contextString = `User Query: ${userMessage}\nUser Conditions: ${healthProfile?.conditions || "None"}\nUser Allergies: ${healthProfile?.allergies || "None"}`;
+        .maybeSingle();
+
+      contextString = [
+        `User Query: ${userMessage}`,
+        `User Conditions: ${healthProfile?.conditions || "None recorded"}`,
+        `User Allergies: ${healthProfile?.allergies || "None recorded"}`,
+        `User Medications: ${healthProfile?.medications || "None recorded"}`,
+      ].join("\n");
     }
     medicalResult = await callLLM(MEDICAL_PROMPT, contextString, "text");
   }
@@ -479,12 +484,6 @@ export async function processChatMessage(
             );
 
             await advanceMissionToProviderSelected(currentMissionId, userId);
-
-            try {
-              await toggleSlotAvailability(matchedSlot.id, true);
-            } catch (slotErr) {
-              console.warn("Could not toggle slot availability:", slotErr);
-            }
 
             // Clear cached slots after booking
             mergedContext.availableSlots = [];

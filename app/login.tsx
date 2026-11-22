@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "@/services/supabase/client";
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -49,6 +50,36 @@ export default function LoginScreen() {
       Alert.alert("Login failed", "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [resettingPassword, setResettingPassword] = useState(false);
+
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      Alert.alert(
+        "Enter Your Email",
+        "Type your account email in the Email field first, then tap Forgot password.",
+      );
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
+      if (error) throw error;
+      Alert.alert(
+        "Reset Link Sent",
+        `If an account exists for ${trimmedEmail}, a password reset email has been sent.`,
+      );
+    } catch (err: any) {
+      Alert.alert(
+        "Reset Failed",
+        err?.message || "Could not send password reset email. Try again later.",
+      );
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -108,14 +139,9 @@ export default function LoginScreen() {
           {/* Forgot Password */}
           <Pressable
             style={styles.forgotButton}
-            onPress={() => {
-              Alert.alert(
-                "Forgot password",
-                "Password reset will be connected to Supabase next.",
-              );
-            }}
-            disabled={loading}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
+            onPress={() => void handleForgotPassword()}
+            disabled={resettingPassword}>
+            <Text style={styles.forgotText}>{resettingPassword ? "Sending reset email..." : "Forgot password?"}</Text>
           </Pressable>
 
           {/* Login */}
